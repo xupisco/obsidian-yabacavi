@@ -1,0 +1,425 @@
+.yabacavi {
+	/* Month cells grow with their cards; this is only the floor. */
+	--yabacavi-day-min-height: 120px;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* Bases reserves a scrollbar gutter on the view wrapper; the calendar manages
+   its own scroll, so reclaim that space. */
+div.bases-view[data-view-type="calendar-cards"] {
+	scrollbar-gutter: unset !important;
+}
+
+/* An inline ```base``` embed wraps the view with no defined height, which would
+   collapse height:100% down to just the toolbar. */
+.bases-embed .yabacavi {
+	min-height: 400px;
+}
+
+/* --- toolbar ------------------------------------------------------------ */
+
+.yabacavi-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex: 0 0 auto;
+}
+
+.yabacavi-nav {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.yabacavi-title {
+	flex: 1;
+	font-weight: var(--font-semibold);
+	font-size: var(--font-ui-medium);
+	text-transform: capitalize;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.yabacavi-modes {
+	display: flex;
+	gap: var(--size-2-1);
+}
+
+.yabacavi-btn {
+	box-shadow: none;
+	background-color: transparent;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	padding: var(--size-2-2) var(--size-4-2);
+	height: auto;
+	cursor: pointer;
+}
+
+.yabacavi-btn:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.yabacavi-btn--icon {
+	display: flex;
+	align-items: center;
+	padding: var(--size-2-2);
+}
+
+.yabacavi-modes .yabacavi-btn {
+	background-color: var(--background-primary);
+}
+
+.yabacavi-modes .yabacavi-btn.is-active {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* --- layout ------------------------------------------------------------- */
+
+.yabacavi-body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding-left: 6px;
+}
+
+.yabacavi-empty {
+	padding: var(--size-4-8);
+	text-align: center;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.yabacavi-month {
+	display: flex;
+	flex-direction: column;
+}
+
+.yabacavi-weekdays {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background-color: var(--background-primary);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.yabacavi-weekday {
+	padding: var(--size-2-2) var(--size-4-1);
+	text-align: center;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+/* Accent text rather than another badge — the day number already wears one,
+   and two badges in the same column shout over each other. */
+.yabacavi-weekday.is-today,
+.yabacavi-day.is-today .yabacavi-day-weekday {
+	color: var(--text-accent);
+	font-weight: var(--font-semibold);
+}
+
+.yabacavi-grid {
+	display: grid;
+}
+
+/* Rows are auto-sized, not 1fr: a 1fr row stretches to fill the pane, so cell
+   height would track the window and the week count instead of the content.
+   align-content keeps the extra space below the grid rather than in the rows. */
+.yabacavi-grid--month {
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	grid-auto-rows: minmax(var(--yabacavi-day-min-height), auto);
+	align-content: start;
+}
+
+.yabacavi-grid--week {
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	height: 100%;
+}
+
+.yabacavi-grid--month.is-weekdays-only,
+.yabacavi-grid--week.is-weekdays-only,
+.yabacavi-weekdays.is-weekdays-only {
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.yabacavi-grid--day {
+	grid-template-columns: minmax(0, 1fr);
+	height: 100%;
+}
+
+/* --- day cells ---------------------------------------------------------- */
+
+.yabacavi-day {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	border-right: 1px solid var(--background-modifier-border);
+	border-bottom: 1px solid var(--background-modifier-border);
+	transition:
+		background-color 100ms ease-out,
+		opacity 100ms ease-out;
+}
+
+/* No right border on the last column, whichever column that is. */
+.yabacavi-grid--month:not(.is-weekdays-only) .yabacavi-day:nth-child(7n),
+.yabacavi-grid--month.is-weekdays-only .yabacavi-day:nth-child(5n),
+.yabacavi-grid--week .yabacavi-day:last-child,
+.yabacavi-grid--day .yabacavi-day {
+	border-right: none;
+}
+
+/* Adjacent-month days are dimmed as a whole; hovering brings one back. */
+.yabacavi-day.is-outside {
+	opacity: 0.5;
+}
+
+.yabacavi-day:hover {
+	opacity: 1;
+}
+
+.yabacavi-day:hover .yabacavi-day-number {
+	font-weight: var(--font-semibold);
+}
+
+/* Drop feedback is the cell itself; the day number is left alone. */
+.yabacavi-day.is-drop-target {
+	background-color: var(--background-modifier-hover);
+	box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+
+.yabacavi-day-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-2-2);
+	padding: var(--size-2-2) var(--size-2-3);
+	flex: 0 0 auto;
+}
+
+.yabacavi-day-weekday {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+
+/* Consistently sized so the number sits in the same spot in every cell and
+   today (bold) doesn't nudge the row. */
+.yabacavi-day-number {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 1.75em;
+	height: 1.75em;
+	padding: 0 0.35em;
+	line-height: 1;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Today is bold accent text — no filled badge. A theme recolours it. */
+.yabacavi-day.is-today .yabacavi-day-number {
+	color: var(--text-accent);
+	font-weight: var(--font-semibold);
+}
+
+.yabacavi-day-cards {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 0 var(--size-2-2) var(--size-2-2);
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+/* --- cards -------------------------------------------------------------- */
+
+.yabacavi-card {
+	/* No accent by default; a theme sets this per status. Transparent keeps the
+	   bar invisible until a colour is set. */
+	--yabacavi-accent-color: transparent;
+	/* Thickness of the accent bar across the top of the card. */
+	--yabacavi-accent-width: 5px;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--background-primary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	/* Clip the bar to the rounded corners. */
+	overflow: hidden;
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	flex: 0 0 auto;
+}
+
+.yabacavi-card:hover {
+	background-color: var(--background-modifier-hover);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.yabacavi:not(.is-readonly) .yabacavi-card {
+	cursor: grab;
+}
+
+/* Kept at low specificity on purpose, so a theme snippet can override the
+   dragged card's look without a fight. */
+.yabacavi-card.is-dragging {
+	opacity: 0.4;
+}
+
+/* The clone that hangs off the cursor. The JS only feeds it scalars through the
+   custom properties; everything visual lives here. transform-origin is the
+   pivot it swings around — top-centre, where the cursor "holds" it. */
+.yabacavi-card-ghost {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: var(--layer-popover);
+	width: var(--yabacavi-ghost-width);
+	margin: 0;
+	pointer-events: none;
+	/* Pivot at the grab point so the card swings around where you're holding it. */
+	transform-origin: var(--yabacavi-ghost-origin-x, 50%) var(--yabacavi-ghost-origin-y, 0);
+	transform: translate(var(--yabacavi-ghost-x, 0), var(--yabacavi-ghost-y, 0))
+		rotate(var(--yabacavi-ghost-angle, 0deg));
+	box-shadow: var(--shadow-l);
+	will-change: transform;
+}
+
+/* Bar across the top of the card, coloured per status. */
+.yabacavi-card-accent {
+	flex: 0 0 var(--yabacavi-accent-width);
+	background-color: var(--yabacavi-accent-color);
+}
+
+.yabacavi-card-body {
+	flex: 1;
+	min-width: 0;
+	padding: 6px 8px 10px;
+}
+
+.yabacavi-card-title {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding-bottom: 5px;
+	color: var(--text-normal);
+	font-weight: var(--font-medium);
+	font-size: 110%;
+	line-height: var(--line-height-tight);
+	overflow-wrap: anywhere;
+}
+
+.yabacavi-card-time {
+	color: var(--text-accent);
+	font-variant-numeric: tabular-nums;
+	font-size: 100%;
+	flex: 0 0 auto;
+}
+
+/* Each property stacks on its own row; this only lays the containers out, it
+   doesn't touch what's inside them. */
+.yabacavi-card-props {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 6px;
+	margin-top: 6px;
+	min-width: 0;
+}
+
+/* One container per property, holding that property's items on a line. Target a
+   single property with .yabacavi-chip[data-property="note.tags"] — set
+   flex-direction: column there to stack just that one's items. */
+.yabacavi-chip {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	max-width: 100%;
+	min-width: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.yabacavi-chip-item {
+	max-width: 100%;
+	padding: 0 var(--size-2-2);
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-hover);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Tag items borrow the theme's own tag styling so they read as tags. */
+.yabacavi-chip[data-property*="tags"] .yabacavi-chip-item {
+	padding: 1px 4px;
+	background-color: var(--tag-background);
+}
+
+/* Formulas render short pills (html()); let them show in full. */
+.yabacavi-chip--formula {
+	display: block;
+	overflow: unset;
+}
+
+.yabacavi-chip--formula > * {
+	display: inline;
+}
+
+/* --- note modal --------------------------------------------------------- */
+
+.yabacavi-note-modal {
+	width: min(900px, 90vw);
+	height: min(700px, 85vh);
+}
+
+.yabacavi-note-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	flex: 1;
+	padding: 0;
+}
+
+/* Strip the modal's own chrome — the embedded note brings its own header. */
+.yabacavi-note-modal .modal-header {
+	display: none;
+}
+
+.yabacavi-note-modal .modal-close-button {
+	z-index: 10;
+}
+
+.yabacavi-note-modal .view-header {
+	padding: 0 30px 0 0;
+}
+
+.yabacavi-note-modal .markdown-source-view,
+.yabacavi-note-modal .markdown-reading-view {
+	background-color: var(--background-primary);
+}
+
+.yabacavi-note-modal .markdown-rendered {
+	padding: 0 12px 10px;
+}
+
+.yabacavi-modal-leaf {
+	flex: 1;
+	min-height: 0;
+}

@@ -1,0 +1,10 @@
+{
+	"id": "yabacavi",
+	"name": "Yabacavi",
+	"version": "0.1.0",
+	"minAppVersion": "1.10.2",
+	"description": "Yet Another Bases Calendar View. Lay notes out as cards on a day, week or month grid, and drag them to reschedule a date property.",
+	"author": "Leandro Voltolino",
+	"authorUrl": "https://github.com/xupisco/obsidian-yabacavi",
+	"isDesktopOnly": false
+}

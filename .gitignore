@@ -1,0 +1,25 @@
+# npm / deps
+node_modules/
+package-lock.json
+
+# build output (bundled on release)
+main.js
+*.js.map
+
+# obsidian plugin data
+data.json
+
+# personal vault snippet — not part of the plugin
+plugin_yabacavi.css
+plugin_yabacavi.scss
+
+# editor / os / tools
+.vscode/
+.idea/
+*.iml
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+
+# optional local test vault
+test-vault/

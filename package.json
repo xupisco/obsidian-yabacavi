@@ -1,0 +1,35 @@
+{
+  "name": "yabacavi",
+  "version": "0.1.0",
+  "description": "Yet Another Bases Calendar View - notes as cards, with drag and drop rescheduling",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "lint": "tsc -noEmit -skipLibCheck && eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "obsidian-md",
+    "bases",
+    "calendar"
+  ],
+  "author": "xupisco",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@typescript-eslint/parser": "^8.63.0",
+    "esbuild": "0.28.1",
+    "eslint": "^10.7.0",
+    "eslint-plugin-obsidianmd": "^0.4.1",
+    "globals": "^17.7.0",
+    "obsidian": "1.13.1",
+    "prettier": "3.9.5",
+    "tslib": "2.4.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.63.0"
+  }
+}
