@@ -460,6 +460,15 @@ div.bases-view[data-view-type="calendar-cards"] {
 	z-index: 10;
 }
 
+/* Fallback position for the "open in new tab" icon when the note's own header
+   action bar isn't present — tuck it just left of the modal's close button. */
+.yabacavi-note-modal .yabacavi-modal-open {
+	position: absolute;
+	top: var(--size-4-3);
+	right: calc(var(--size-4-3) + 32px);
+	z-index: 11;
+}
+
 .yabacavi-note-modal .view-header {
 	padding: 0 30px 0 0;
 }
