@@ -12,6 +12,8 @@ export interface YabacaviSettings {
 	openBehavior: OpenBehavior;
 	/** Vault path to a template file, applied when creating a note from a day. */
 	newNoteTemplate: string;
+	/** Show a per-day icon that opens (or creates) that day's daily note. */
+	showDailyNote: boolean;
 	/** Frontmatter property whose value selects an accent colour. */
 	statusProperty: string;
 	statusColors: StatusColor[];
@@ -20,6 +22,7 @@ export interface YabacaviSettings {
 export const DEFAULT_SETTINGS: YabacaviSettings = {
 	openBehavior: "modal",
 	newNoteTemplate: "",
+	showDailyNote: false,
 	statusProperty: "status",
 	statusColors: [],
 };
@@ -78,6 +81,18 @@ export class YabacaviSettingTab extends PluginSettingTab {
 						this.plugin.settings.openBehavior = value as OpenBehavior;
 						void this.plugin.saveSettings();
 					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Show daily note")
+			.setDesc(
+				"Add an icon on each day's number that opens its daily note, or creates one (using your daily notes folder, format and template) when there isn't one yet.",
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.showDailyNote).onChange((value) => {
+					this.plugin.settings.showDailyNote = value;
+					void this.plugin.saveSettings();
+				}),
 			);
 
 		new Setting(containerEl)

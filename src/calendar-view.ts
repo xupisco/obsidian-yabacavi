@@ -13,6 +13,7 @@ import {
 } from "obsidian";
 import type YabacaviPlugin from "./main";
 import { renderCard } from "./card";
+import { createDailyNote, getDailyNote } from "./daily-notes";
 import { DragDropManager } from "./drag-drop";
 import { NoteModal } from "./note-modal";
 import {
@@ -93,6 +94,17 @@ export class CalendarView extends BasesView implements HoverParent {
 
 		// Registered so a settings change (e.g. status colours) can re-render us.
 		this.plugin.trackView(this);
+
+		// Daily notes live outside the base's query, so their create/delete never
+		// reaches onDataUpdated — watch the vault so the day-header icons don't go
+		// stale (this also flips the icon right after we create one ourselves).
+		this.registerEvent(this.app.vault.on("create", () => this.onVaultChanged()));
+		this.registerEvent(this.app.vault.on("delete", () => this.onVaultChanged()));
+		this.registerEvent(this.app.vault.on("rename", () => this.onVaultChanged()));
+	}
+
+	private onVaultChanged(): void {
+		if (this.plugin.settings.showDailyNote) this.scheduleRender();
 	}
 
 	onunload(): void {
@@ -492,6 +504,7 @@ export class CalendarView extends BasesView implements HoverParent {
 				headEl.createSpan({ cls: "yabacavi-day-weekday", text: weekdayFormat.format(day) });
 			}
 			headEl.createSpan({ cls: "yabacavi-day-number", text: String(day.getDate()) });
+			if (this.plugin.settings.showDailyNote) this.renderDailyNoteButton(headEl, day);
 		}
 
 		const cardsEl = cellEl.createDiv({ cls: "yabacavi-day-cards" });
@@ -500,11 +513,43 @@ export class CalendarView extends BasesView implements HoverParent {
 		}
 
 		cellEl.addEventListener("dblclick", (evt) => {
-			if ((evt.target as HTMLElement).closest(".yabacavi-card")) return;
+			const target = evt.target as HTMLElement;
+			if (target.closest(".yabacavi-card, .yabacavi-daily-note")) return;
 			void this.createNoteOn(day);
 		});
 
 		return cellEl;
+	}
+
+	/**
+	 * Icon in the day header for that day's daily note. Pinned visible when the
+	 * note exists (the icon itself signals "has note"); CSS reveals it on hover
+	 * otherwise.
+	 */
+	private renderDailyNoteButton(headEl: HTMLElement, day: Date): void {
+		const existing = getDailyNote(this.app, day);
+		// A span, not a button: a <button> drags the theme's background and focus
+		// ring in with it, and this is meant to read as a bare icon.
+		const btnEl = headEl.createSpan({ cls: "yabacavi-daily-note" });
+		btnEl.toggleClass("has-note", existing !== null);
+		setIcon(btnEl, existing ? "lucide-notebook-text" : "lucide-notebook-pen");
+		btnEl.setAttr("aria-label", existing ? "Open daily note" : "Create daily note");
+		btnEl.addEventListener("click", (evt) => {
+			// Keep the click off the cell so it can't be mistaken for a card drag
+			// or the double-click new-note gesture.
+			evt.stopPropagation();
+			void this.openDailyNote(day);
+		});
+	}
+
+	private async openDailyNote(day: Date): Promise<void> {
+		try {
+			const file = getDailyNote(this.app, day) ?? (await createDailyNote(this.app, day));
+			this.openInBehavior(file);
+		} catch (err) {
+			console.error("Yabacavi: failed to open the daily note", err);
+			new Notice("Yabacavi: couldn't open the daily note");
+		}
 	}
 
 	private async createNoteOn(day: Date): Promise<void> {
