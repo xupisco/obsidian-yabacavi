@@ -1,4 +1,12 @@
-import { AbstractInputSuggest, PluginSettingTab, Setting, TFile, type App } from "obsidian";
+import {
+	AbstractInputSuggest,
+	PluginSettingTab,
+	SecretComponent,
+	Setting,
+	TFile,
+	requireApiVersion,
+	type App,
+} from "obsidian";
 import type YabacaviPlugin from "./main";
 import type { OpenBehavior } from "./view-options";
 
@@ -14,6 +22,15 @@ export interface YabacaviSettings {
 	newNoteTemplate: string;
 	/** Show a per-day icon that opens (or creates) that day's daily note. */
 	showDailyNote: boolean;
+	/** Place Todoist tasks on the calendar by their due date. */
+	todoistEnabled: boolean;
+	/** ID of the entry in Obsidian's secret storage holding the API token — not
+	 *  the token itself, which never touches this settings file. */
+	todoistTokenSecret: string;
+	/** Auto re-fetch interval in minutes; 0 means manual (toolbar button) only. */
+	todoistRefreshMinutes: number;
+	/** Accent-bar colour for every Todoist card. Empty means tint by priority. */
+	todoistAccentColor: string;
 	/** Frontmatter property whose value selects an accent colour. */
 	statusProperty: string;
 	statusColors: StatusColor[];
@@ -23,6 +40,10 @@ export const DEFAULT_SETTINGS: YabacaviSettings = {
 	openBehavior: "modal",
 	newNoteTemplate: "",
 	showDailyNote: false,
+	todoistEnabled: false,
+	todoistTokenSecret: "",
+	todoistRefreshMinutes: 0,
+	todoistAccentColor: "",
 	statusProperty: "status",
 	statusColors: [],
 };
@@ -114,6 +135,8 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					});
 			});
 
+		this.displayTodoist(containerEl);
+
 		new Setting(containerEl)
 			.setName("Status property")
 			.setDesc("Frontmatter property whose value picks the accent colour below.")
@@ -168,5 +191,89 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					this.display();
 				}),
 		);
+	}
+
+	private displayTodoist(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Todoist").setHeading();
+
+		// SecretComponent and the secret store both landed in 1.11.4. On anything
+		// older there's nowhere safe to keep a token, so the whole section is gated.
+		if (!requireApiVersion("1.11.4")) {
+			new Setting(containerEl).setDesc(
+				"Todoist integration needs Obsidian 1.11.4 or newer (for secret storage).",
+			);
+			return;
+		}
+
+		new Setting(containerEl)
+			.setName("API token")
+			.setDesc(
+				"Your Todoist API token (Settings → Integrations → Developer). Kept in Obsidian's secret storage, not in this plugin's settings file.",
+			)
+			.addComponent((el) =>
+				new SecretComponent(this.app, el)
+					.setValue(this.plugin.settings.todoistTokenSecret)
+					.onChange((value) => {
+						this.plugin.settings.todoistTokenSecret = value;
+						void this.plugin.saveSettings();
+						this.plugin.configureTodoist();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Show Todoist tasks")
+			.setDesc("Place your Todoist tasks on the calendar by their due date, beside the note cards.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.todoistEnabled).onChange((value) => {
+					this.plugin.settings.todoistEnabled = value;
+					void this.plugin.saveSettings();
+					this.plugin.configureTodoist();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName("Auto-refresh")
+			.setDesc(
+				"How often to re-fetch tasks from Todoist. Manual only relies on the refresh button in the calendar toolbar.",
+			)
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("0", "Manual only")
+					.addOption("5", "Every 5 minutes")
+					.addOption("15", "Every 15 minutes")
+					.addOption("30", "Every 30 minutes")
+					.addOption("60", "Every hour")
+					.setValue(String(this.plugin.settings.todoistRefreshMinutes))
+					.onChange((value) => {
+						this.plugin.settings.todoistRefreshMinutes = Number(value);
+						void this.plugin.saveSettings();
+						this.plugin.configureTodoist();
+					}),
+			);
+
+		// A toggle, not a bare picker: a colour picker always shows some swatch, so
+		// on its own it can't represent "unset" and reads as already-applied. The
+		// toggle makes the state explicit — off means tint by priority.
+		new Setting(containerEl)
+			.setName("Custom accent colour")
+			.setDesc(
+				"Give every Todoist card the same accent bar. Off tints them by task priority (p1 red … p3 blue).",
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.todoistAccentColor !== "").onChange((value) => {
+					this.plugin.settings.todoistAccentColor = value ? "#e44332" : "";
+					void this.plugin.saveSettings();
+					this.display();
+				}),
+			);
+
+		if (this.plugin.settings.todoistAccentColor !== "") {
+			new Setting(containerEl).setName("Accent colour").addColorPicker((picker) =>
+				picker.setValue(this.plugin.settings.todoistAccentColor).onChange((value) => {
+					this.plugin.settings.todoistAccentColor = value;
+					void this.plugin.saveSettings();
+				}),
+			);
+		}
 	}
 }

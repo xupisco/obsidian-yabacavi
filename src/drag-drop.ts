@@ -5,8 +5,11 @@ import { DragGhost, hideNativeDragImage } from "./drag-ghost";
 const CARD_MIME = "application/x-yabacavi-card";
 
 export interface DragDropCallbacks {
-	canDrag: () => boolean;
-	onCardDrop: (filePath: string, dayKey: DayKey) => void;
+	/** Whether this particular card may be dragged (note editability, or a
+	 *  reschedulable Todoist task). */
+	canDrag: (cardEl: HTMLElement) => boolean;
+	/** Route the dropped card to its handler by inspecting the element. */
+	onCardDrop: (cardEl: HTMLElement, dayKey: DayKey) => void;
 }
 
 /**
@@ -48,15 +51,16 @@ export class DragDropManager {
 
 	private onDragStart = (evt: DragEvent): void => {
 		const cardEl = (evt.target as HTMLElement | null)?.closest<HTMLElement>(".yabacavi-card");
-		const filePath = cardEl?.dataset.filePath;
-		if (!cardEl || !filePath) return;
+		if (!cardEl) return;
 
-		if (!this.callbacks.canDrag()) {
+		if (!this.callbacks.canDrag(cardEl)) {
 			evt.preventDefault();
 			return;
 		}
 
-		evt.dataTransfer?.setData(CARD_MIME, filePath);
+		// The value is unused — we read drag state directly (Electron won't expose
+		// the custom MIME during dragover/drop) — but setting it marks the drag.
+		evt.dataTransfer?.setData(CARD_MIME, "1");
 		if (evt.dataTransfer) evt.dataTransfer.effectAllowed = "move";
 		this.draggingEl = cardEl;
 		cardEl.addClass("is-dragging");
@@ -89,14 +93,14 @@ export class DragDropManager {
 
 	private onDrop = (evt: DragEvent): void => {
 		// From our own state, not dataTransfer.getData — same Electron caveat.
-		const filePath = this.draggingEl?.dataset.filePath;
+		const cardEl = this.draggingEl;
 		const cellEl = this.cellFromPoint(evt.clientX, evt.clientY);
 		const dayKey = cellEl?.dataset.dayKey;
-		if (!filePath || !dayKey) return;
+		if (!cardEl || !dayKey) return;
 
 		evt.preventDefault();
 		this.reset();
-		this.callbacks.onCardDrop(filePath, dayKey);
+		this.callbacks.onCardDrop(cardEl, dayKey);
 	};
 
 	/**

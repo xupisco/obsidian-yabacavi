@@ -2,9 +2,9 @@
 
 **Y**et **A**nother **BA**ses **CA**lendar **VI**ew — a calendar view for Obsidian [Bases](https://help.obsidian.md/bases).
 
-Notes become cards on a **day, week or month** grid, placed by any date property. **Drag a card** to another day to reschedule it, and click one to open the note.
+Notes become cards on a **day, week or month** grid, placed by any date property. **Drag a card** to another day to reschedule it, and click one to open the note. Optionally, your **[Todoist](#todoist-tasks) tasks** land on the same grid beside your notes.
 
-Requires Obsidian **1.10.2+** with the **Bases** core plugin enabled.
+Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 
 ## Screenshots
 
@@ -25,6 +25,9 @@ Requires Obsidian **1.10.2+** with the **Bases** core plugin enabled.
   the point you grabbed it.
 - **Status → accent colour** — map a property's values (e.g. `todo`, `done`) to a
   coloured accent bar, from the settings tab.
+- **Todoist tasks on the calendar** — show your Todoist tasks beside your notes,
+  drag them to reschedule, and complete them from the card. See
+  [Todoist tasks](#todoist-tasks).
 - **Open notes** in a floating modal, the current tab, a new tab or a split.
 - **Double-click an empty day** to create a note dated to it, optionally from a
   template file.
@@ -61,6 +64,38 @@ Requires Obsidian **1.10.2+** with the **Bases** core plugin enabled.
 | New note template | Template file copied into notes created from the calendar (raw copy; template variables aren't expanded). |
 | Status property | Frontmatter property whose value selects the accent colour. |
 | Status colours | Map status values to accent-bar colours. |
+| Todoist API token | Your Todoist token, kept in Obsidian's secret storage (not the settings file). |
+| Show Todoist tasks | Place your Todoist tasks on the grid by their due date. |
+| Todoist auto-refresh | How often to re-fetch tasks — manual only, or every 5/15/30/60 minutes. |
+| Todoist accent colour | One accent-bar colour for all Todoist cards; off tints them by priority. |
+
+## Todoist tasks
+
+Show your [Todoist](https://todoist.com) tasks on the calendar alongside your notes,
+placed by their due date.
+
+1. In *Settings → Yabacavi → Todoist*, paste your **API token** (in Todoist:
+   *Settings → Integrations → Developer*). It's stored in Obsidian's secret storage,
+   not in the plugin's settings file.
+2. Turn on **Show Todoist tasks** — from the settings tab, or the toggle that appears
+   in the calendar toolbar.
+3. Tasks load when you enable them and on the toolbar **↻** button; set an
+   **auto-refresh** interval for a timed re-fetch.
+
+- Task cards carry a red **Todoist mark**, show their **project** and **labels**, and
+  flag whether the task has a **description**.
+- **Click** a task for a modal with its description (rendered as markdown), full due
+  date, and a button to open it in the Todoist app (falling back to the web). Tick the
+  checkbox by the title to **complete** the task.
+- **Drag a task** to another day to reschedule it in Todoist — a timed task keeps its
+  time. Recurring tasks aren't draggable, so their recurrence is never flattened.
+- The accent bar is tinted by **priority** (p1 red … p3 blue) unless you set a single
+  **custom accent colour** in settings.
+- Tasks and notes **sort together** within a day: timed first (chronological), then
+  the rest alphabetically by title.
+
+> The Todoist integration needs Obsidian **1.11.4+** for its secret storage. Leave the
+> token empty and nothing Todoist-related appears — the calendar works on its own.
 
 ## Customising with CSS
 
@@ -82,6 +117,9 @@ Handy hooks:
   `[data-project]`, …). List values match with `~=`.
 - `--yabacavi-accent-color` / `--yabacavi-accent-width` on `.yabacavi-card`.
 - `--yabacavi-day-min-height` on `.yabacavi`.
+- `.yabacavi-card--todoist` for Todoist cards, with `[data-priority="1"…"4"]` and
+  `[data-recurring]` to target them (their project/labels are in
+  `[data-property="todoist.project"]` / `[data-property="todoist.tags"]`).
 
 Status colours set in the settings tab are applied inline, so they win over CSS
 rules; leave the list empty to drive the accent entirely from your own CSS.

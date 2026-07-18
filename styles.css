@@ -60,6 +60,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 
 .yabacavi-btn {
 	box-shadow: none;
+	border: none;
 	background-color: transparent;
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
@@ -484,4 +485,221 @@ div.bases-view[data-view-type="calendar-cards"] {
 .yabacavi-modal-leaf {
 	flex: 1;
 	min-height: 0;
+}
+
+/* --- Todoist ------------------------------------------------------------ */
+
+/* Toolbar cluster: a "Todoist" label, the show/hide toggle, and refresh. Sits to
+   the left of the mode buttons; the trailing border is the divider between them,
+   and it vanishes with the cluster when there's no token. */
+.yabacavi-todoist-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-right: 16px;
+	border-right: 1px solid var(--text-faint);
+}
+
+.yabacavi-todoist-label {
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	color: var(--text-muted);
+}
+
+.yabacavi-todoist-controls.is-hidden {
+	display: none;
+}
+
+/* Refresh button: bare like the nav icons — transparent, no shadow, only a hover
+   fill. */
+.yabacavi-todoist-refresh {
+	/* !important: some themes style buttons more specifically than a single class,
+	   and this must stay bare. The hover below needs it too, or the base wins it. */
+	background-color: transparent !important;
+	box-shadow: none;
+}
+
+.yabacavi-todoist-refresh:hover {
+	background-color: var(--background-modifier-hover) !important;
+	box-shadow: none;
+}
+
+.yabacavi-todoist-refresh.is-hidden {
+	display: none;
+}
+
+.yabacavi-todoist-refresh.is-loading {
+	pointer-events: none;
+	color: var(--text-faint);
+}
+
+.yabacavi-todoist-refresh.is-loading svg {
+	animation: yabacavi-spin 0.8s linear infinite;
+}
+
+@keyframes yabacavi-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Task marker + title share a row (the card title is otherwise a column, which
+   would drop the icon onto its own line). */
+.yabacavi-card-titleline {
+	display: flex;
+	align-items: flex-start;
+	gap: 5px;
+}
+
+/* The Todoist mark identifying the card's source. Nudged down a hair so it sits
+   on the text's first line rather than its cap. */
+.yabacavi-card-source {
+	flex: 0 0 auto;
+	width: 0.95em;
+	height: 0.95em;
+	margin-top: 0.2em;
+}
+
+/* "Has a description" marker, trailing the title on the same line. */
+.yabacavi-card-desc-icon {
+	flex: 0 0 auto;
+	display: inline-flex;
+	margin-top: 0.2em;
+	color: var(--text-muted);
+}
+
+.yabacavi-card-desc-icon svg {
+	width: 0.85em;
+	height: 0.85em;
+}
+
+/* Accent bar reflects Todoist priority (4 = urgent … 1 = none). p1 keeps the
+   default transparent bar. Low specificity so a snippet can recolour them. */
+.yabacavi-card--todoist[data-priority="4"] .yabacavi-card-accent {
+	background-color: var(--color-red);
+}
+
+.yabacavi-card--todoist[data-priority="3"] .yabacavi-card-accent {
+	background-color: var(--color-orange);
+}
+
+.yabacavi-card--todoist[data-priority="2"] .yabacavi-card-accent {
+	background-color: var(--color-blue);
+}
+
+/* Draggable Todoist cards show the grab cursor even in a read-only calendar —
+   their reschedule goes to the API, not the note date property. */
+.yabacavi-card--todoist[draggable="true"] {
+	cursor: grab;
+}
+
+/* Recurring tasks can't be dragged; keep the plain click cursor. */
+.yabacavi .yabacavi-card--todoist[data-recurring="true"] {
+	cursor: pointer;
+}
+
+/* --- Todoist modal ------------------------------------------------------ */
+
+.yabacavi-todoist-modal {
+	width: min(520px, 90vw);
+}
+
+/* Title row: the completion checkbox sits beside the task title. */
+.yabacavi-todoist-title {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Todoist-style round checkbox that closes the task when ticked. */
+.yabacavi-todoist-check {
+	appearance: none;
+	-webkit-appearance: none;
+	flex: 0 0 auto;
+	width: 1.15em;
+	height: 1.15em;
+	margin: 0;
+	border: 1.5px solid var(--text-muted);
+	border-radius: 50%;
+	cursor: pointer;
+	position: relative;
+}
+
+.yabacavi-todoist-check:hover {
+	border-color: var(--text-normal);
+}
+
+.yabacavi-todoist-check:checked {
+	background-color: var(--text-muted);
+	border-color: var(--text-muted);
+}
+
+/* The tick, drawn as an L rotated into a checkmark. */
+.yabacavi-todoist-check:checked::after {
+	content: "";
+	position: absolute;
+	left: 0.34em;
+	top: 0.14em;
+	width: 0.24em;
+	height: 0.46em;
+	border: solid var(--background-primary);
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
+
+.yabacavi-todoist-desc {
+	overflow-wrap: anywhere;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-3);
+}
+
+/* Rendered markdown brings its own paragraph margins; drop the outer ones so the
+   block sits flush against the title and the meta rows below. */
+.yabacavi-todoist-desc > :first-child {
+	margin-top: 0;
+}
+
+.yabacavi-todoist-desc > :last-child {
+	margin-bottom: 0;
+}
+
+.yabacavi-todoist-meta {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	margin-bottom: var(--size-4-4);
+}
+
+.yabacavi-todoist-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	font-size: var(--font-ui-small);
+}
+
+.yabacavi-todoist-row-icon {
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
+.yabacavi-todoist-row-icon svg {
+	width: 1em;
+	height: 1em;
+}
+
+/* Fixed-width label column so the values line up down the rows. */
+.yabacavi-todoist-row-label {
+	flex: 0 0 auto;
+	width: 4.5em;
+	color: var(--text-muted);
+}
+
+.yabacavi-todoist-row-value {
+	color: var(--text-normal);
+	overflow-wrap: anywhere;
+}
+
+.yabacavi-todoist-open {
+	width: 100%;
 }

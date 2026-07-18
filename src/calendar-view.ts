@@ -2,6 +2,7 @@ import {
 	BasesView,
 	Notice,
 	TFile,
+	ToggleComponent,
 	parsePropertyId,
 	setIcon,
 	type BasesEntry,
@@ -13,6 +14,9 @@ import {
 } from "obsidian";
 import type YabacaviPlugin from "./main";
 import { renderCard } from "./card";
+import { renderTodoistCard } from "./todoist-card";
+import { rescheduleTask, type TodoistTaskView } from "./todoist";
+import { TodoistTaskModal } from "./todoist-modal";
 import { createDailyNote, getDailyNote } from "./daily-notes";
 import { DragDropManager } from "./drag-drop";
 import { NoteModal } from "./note-modal";
@@ -21,6 +25,7 @@ import {
 	addMonths,
 	composeDateValue,
 	extractDate,
+	hasTime,
 	isSameDay,
 	isWeekend,
 	parseDayKey,
@@ -59,6 +64,37 @@ interface CardItem {
 	date: Date;
 }
 
+/** A card in a day cell, from either source, unified so they sort together. */
+type DayCard =
+	| { kind: "note"; entry: BasesEntry; date: Date }
+	| { kind: "todoist"; view: TodoistTaskView };
+
+function dayCardDate(card: DayCard): Date {
+	return card.kind === "note" ? card.date : card.view.date;
+}
+
+function dayCardHasTime(card: DayCard): boolean {
+	return card.kind === "note" ? hasTime(card.date) : card.view.hasTime;
+}
+
+function dayCardTitle(card: DayCard): string {
+	return card.kind === "note" ? card.entry.file.basename : card.view.task.content;
+}
+
+/**
+ * Order within a day cell: timed cards first, chronological; then the undated
+ * ones alphabetically by title. Applied across notes and Todoist tasks together,
+ * so a timed task never sits below an all-day note. This overrides the base's own
+ * sort within a day — the calendar wants a time axis there.
+ */
+function compareDayCards(a: DayCard, b: DayCard): number {
+	const aTimed = dayCardHasTime(a);
+	const bTimed = dayCardHasTime(b);
+	if (aTimed !== bTimed) return aTimed ? -1 : 1;
+	if (aTimed) return dayCardDate(a).getTime() - dayCardDate(b).getTime();
+	return dayCardTitle(a).localeCompare(dayCardTitle(b));
+}
+
 export class CalendarView extends BasesView implements HoverParent {
 	type = VIEW_ID;
 	hoverPopover: HoverPopover | null = null;
@@ -69,6 +105,9 @@ export class CalendarView extends BasesView implements HoverParent {
 	private rootEl: HTMLElement;
 	private titleEl!: HTMLElement;
 	private modesEl!: HTMLElement;
+	private todoistControlsEl!: HTMLElement;
+	private todoistToggle!: ToggleComponent;
+	private todoistRefreshEl!: HTMLElement;
 	private bodyEl: HTMLElement;
 	private dragDrop: DragDropManager;
 
@@ -88,8 +127,8 @@ export class CalendarView extends BasesView implements HoverParent {
 		this.bodyEl = this.rootEl.createDiv({ cls: "yabacavi-body" });
 
 		this.dragDrop = new DragDropManager(this.rootEl, {
-			canDrag: () => this.isEditable(),
-			onCardDrop: (filePath, dayKey) => void this.moveCard(filePath, dayKey),
+			canDrag: (cardEl) => this.canDragCard(cardEl),
+			onCardDrop: (cardEl, dayKey) => this.onCardDropped(cardEl, dayKey),
 		});
 
 		// Registered so a settings change (e.g. status colours) can re-render us.
@@ -125,6 +164,12 @@ export class CalendarView extends BasesView implements HoverParent {
 	getStatusColor(value: string): string | null {
 		const match = this.plugin.settings.statusColors.find((entry) => entry.value === value);
 		return match && match.color ? match.color : null;
+	}
+
+	/** The configured accent for Todoist cards, or null to fall back to the
+	 *  per-priority CSS colours. */
+	getTodoistAccentColor(): string | null {
+		return this.plugin.settings.todoistAccentColor || null;
 	}
 
 	onDataUpdated(): void {
@@ -222,6 +267,24 @@ export class CalendarView extends BasesView implements HoverParent {
 
 		this.titleEl = toolbarEl.createDiv({ cls: "yabacavi-title" });
 
+		// Todoist group on the right, before the mode buttons: a label, the show/hide
+		// toggle, and manual refresh. Appears only when a token is set up; the refresh
+		// button only while tasks are shown. Reconciled in render().
+		this.todoistControlsEl = toolbarEl.createDiv({ cls: "yabacavi-todoist-controls" });
+		this.todoistControlsEl.createSpan({ cls: "yabacavi-todoist-label", text: "Todoist" });
+
+		this.todoistToggle = new ToggleComponent(this.todoistControlsEl);
+		this.todoistToggle
+			.setTooltip("Show Todoist tasks")
+			.onChange((value) => void this.setTodoistEnabled(value));
+
+		this.todoistRefreshEl = this.todoistControlsEl.createEl("button", {
+			cls: "yabacavi-btn yabacavi-btn--icon yabacavi-todoist-refresh",
+		});
+		setIcon(this.todoistRefreshEl, "lucide-refresh-cw");
+		this.todoistRefreshEl.setAttr("aria-label", "Refresh Todoist tasks");
+		this.todoistRefreshEl.addEventListener("click", () => void this.plugin.refreshTodoist(true));
+
 		this.modesEl = toolbarEl.createDiv({ cls: "yabacavi-modes" });
 		for (const mode of RANGES) {
 			const btnEl = this.modesEl.createEl("button", {
@@ -231,6 +294,12 @@ export class CalendarView extends BasesView implements HoverParent {
 			btnEl.dataset.mode = mode;
 			btnEl.addEventListener("click", () => this.setRange(mode));
 		}
+	}
+
+	private async setTodoistEnabled(enabled: boolean): Promise<void> {
+		this.plugin.settings.todoistEnabled = enabled;
+		await this.plugin.saveSettings();
+		this.plugin.configureTodoist();
 	}
 
 	private iconButton(
@@ -358,6 +427,51 @@ export class CalendarView extends BasesView implements HoverParent {
 		}
 	}
 
+	// --- drag routing ------------------------------------------------------
+
+	/** A Todoist card is draggable when it isn't a recurring task (rescheduling a
+	 *  recurrence via the API would flatten it); a note card follows editability. */
+	private canDragCard(cardEl: HTMLElement): boolean {
+		if (cardEl.dataset.source === "todoist") return cardEl.dataset.recurring !== "true";
+		return this.isEditable();
+	}
+
+	private onCardDropped(cardEl: HTMLElement, dayKey: DayKey): void {
+		if (cardEl.dataset.source === "todoist") {
+			const taskId = cardEl.dataset.taskId;
+			if (taskId) void this.moveTodoistTask(taskId, dayKey);
+			return;
+		}
+		const filePath = cardEl.dataset.filePath;
+		if (filePath) void this.moveCard(filePath, dayKey);
+	}
+
+	/** Reschedule a Todoist task: paint the move from the store, push the due to
+	 *  the API, then re-sync — which reverts the paint if the write failed. */
+	private async moveTodoistTask(taskId: string, dayKey: DayKey): Promise<void> {
+		const token = this.plugin.getTodoistToken();
+		if (!token) return;
+
+		const moved = this.plugin.todoist.moveTask(taskId, dayKey);
+		if (!moved) return;
+		this.render();
+
+		try {
+			await rescheduleTask(token, taskId, moved.date, moved.hasTime);
+		} catch (err) {
+			console.error("Yabacavi: failed to reschedule Todoist task", err);
+			new Notice("Yabacavi: couldn't reschedule the Todoist task.");
+		}
+		// Re-fetch either way: confirms the move, or restores the server's truth.
+		void this.plugin.refreshTodoist();
+	}
+
+	/** Open the Todoist task modal; centralised here so the card needn't reach the
+	 *  plugin the modal needs for its write actions. */
+	openTodoistTask(item: TodoistTaskView): void {
+		new TodoistTaskModal(this.plugin, item).open();
+	}
+
 	private visibleDays(range: RangeMode, weekStart: WeekStart): Date[] {
 		// Day range shows whatever day you navigated to, weekend or not.
 		if (range === "day") return [startOfDay(this.anchor)];
@@ -419,6 +533,12 @@ export class CalendarView extends BasesView implements HoverParent {
 		const days = this.visibleDays(range, weekStart);
 
 		this.updateToolbar(range, days);
+
+		this.todoistControlsEl.toggleClass("is-hidden", !this.plugin.isTodoistConfigured());
+		// setValue doesn't fire onChange, so this won't loop back through the toggle.
+		this.todoistToggle.setValue(this.plugin.settings.todoistEnabled);
+		this.todoistRefreshEl.toggleClass("is-hidden", !this.plugin.settings.todoistEnabled);
+		this.todoistRefreshEl.toggleClass("is-loading", this.plugin.todoist.loading);
 
 		const scrollTop = this.bodyEl.scrollTop;
 		this.bodyEl.empty();
@@ -508,8 +628,23 @@ export class CalendarView extends BasesView implements HoverParent {
 		}
 
 		const cardsEl = cellEl.createDiv({ cls: "yabacavi-day-cards" });
+
+		// Gather both sources into one list so they sort together by time, rather
+		// than notes-then-tasks with each group ordered on its own.
+		const cards: DayCard[] = [];
 		for (const item of buckets.get(dayKey) ?? []) {
-			renderCard(this, item.entry, item.date, cardsEl);
+			cards.push({ kind: "note", entry: item.entry, date: item.date });
+		}
+		if (this.plugin.isTodoistActive()) {
+			for (const view of this.plugin.todoist.tasksForDay(dayKey)) {
+				cards.push({ kind: "todoist", view });
+			}
+		}
+		cards.sort(compareDayCards);
+
+		for (const card of cards) {
+			if (card.kind === "note") renderCard(this, card.entry, card.date, cardsEl);
+			else renderTodoistCard(this, card.view, cardsEl);
 		}
 
 		cellEl.addEventListener("dblclick", (evt) => {
