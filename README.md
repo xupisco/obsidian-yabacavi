@@ -8,9 +8,9 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 
 ## Screenshots
 
-![alt text](media/yabacavi_ss-01.png)
-![alt text](media/yabacavi_ss-02.png)
-![alt text](media/yabacavi_ss-03.png)
+![Month view](media/yabacavi_ss-01.png)
+![Drag and drop (with physics)](media/yabacavi_ss-02.png)
+![Modal](media/yabacavi_ss-03.png)
 
 ## Features
 
