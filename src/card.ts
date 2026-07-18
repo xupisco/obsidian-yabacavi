@@ -55,6 +55,15 @@ function valueItems(value: Value): string[] {
 	return text ? [text] : [];
 }
 
+/**
+ * Tag values stringify with a leading "#" (e.g. `#work`), but the Bases table
+ * renders them through the native tag component, which drops it. Match that so a
+ * card and a table agree — same convention as the tag CSS ([data-property*="tags"]).
+ */
+function isTagProperty(propId: BasesPropertyId): boolean {
+	return propId.includes("tags");
+}
+
 /** data-* keys the view itself owns; a frontmatter key must never overwrite them. */
 const RESERVED_DATA_KEYS = new Set(["file-path", "day-key", "property"]);
 
@@ -223,8 +232,12 @@ export function renderCard(
 			chipEl.addClass("yabacavi-chip--formula");
 			value.renderTo(chipEl, view.app.renderContext);
 		} else {
+			const stripHash = isTagProperty(propId);
 			for (const item of items) {
-				chipEl.createSpan({ cls: "yabacavi-chip-item", text: item });
+				chipEl.createSpan({
+					cls: "yabacavi-chip-item",
+					text: stripHash ? item.replace(/^#/, "") : item,
+				});
 			}
 		}
 		chips++;

@@ -317,7 +317,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 	/* Clip the bar to the rounded corners. */
 	overflow: hidden;
 	cursor: pointer;
-	font-size: var(--font-ui-smaller);
+	font-size: var(--font-adaptive-small);
 	flex: 0 0 auto;
 }
 
@@ -374,7 +374,6 @@ div.bases-view[data-view-type="calendar-cards"] {
 	padding-bottom: 5px;
 	color: var(--text-normal);
 	font-weight: var(--font-medium);
-	font-size: 110%;
 	line-height: var(--line-height-tight);
 	overflow-wrap: anywhere;
 }
@@ -382,7 +381,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 .yabacavi-card-time {
 	color: var(--text-accent);
 	font-variant-numeric: tabular-nums;
-	font-size: 100%;
+	font-size: var(--font-adaptive-smallest);
 	flex: 0 0 auto;
 }
 
@@ -395,6 +394,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 	gap: 8px;
 	margin-top: 6px;
 	min-width: 0;
+	font-size: var(--font-adaptive-smaller);
 }
 
 /* One container per property, holding that property's items on a line. Target a
@@ -407,7 +407,6 @@ div.bases-view[data-view-type="calendar-cards"] {
 	max-width: 100%;
 	min-width: 0;
 	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
 }
 
 .yabacavi-chip-item {
