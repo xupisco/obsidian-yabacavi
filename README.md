@@ -6,6 +6,12 @@ Notes become cards on a **day, week or month** grid, placed by any date property
 
 Requires Obsidian **1.10.2+** with the **Bases** core plugin enabled.
 
+## Screenshots
+
+![alt text](media/yabacavi_ss-01.png)
+![alt text](media/yabacavi_ss-02.png)
+![alt text](media/yabacavi_ss-03.png)
+
 ## Features
 
 - **Day / week / month** grid, with toolbar navigation and a *Today* button.

@@ -20,6 +20,7 @@ plugin_yabacavi.scss
 .claude/settings.local.json
 .DS_Store
 Thumbs.db
+media/screen_shots.af
 
 # optional local test vault
 test-vault/
