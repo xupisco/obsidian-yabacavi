@@ -66,6 +66,30 @@ export const DEFAULT_SETTINGS: YabacaviSettings = {
 	statusColors: [],
 };
 
+/**
+ * Split a stored accent colour into the 6-digit hex the native picker needs and a
+ * 0–100 opacity for the slider. Accepts `#RRGGBB` or `#RRGGBBAA`; anything else
+ * falls back to an opaque grey.
+ */
+function splitColor(color: string): { hex: string; opacity: number } {
+	const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec((color ?? "").trim());
+	if (!match) return { hex: "#888888", opacity: 100 };
+	return {
+		hex: `#${match[1]}`,
+		opacity: match[2] ? Math.round((parseInt(match[2], 16) / 255) * 100) : 100,
+	};
+}
+
+/** Recombine a 6-digit hex and 0–100 opacity into `#RRGGBB` (opaque) or
+ *  `#RRGGBBAA`. Kept 6-digit at full opacity so the common case stays clean. */
+function combineColor(hex: string, opacity: number): string {
+	if (opacity >= 100) return hex;
+	const alpha = Math.round((opacity / 100) * 255)
+		.toString(16)
+		.padStart(2, "0");
+	return `${hex}${alpha}`;
+}
+
 /** Autocomplete of markdown files for the template picker. */
 class FileSuggest extends AbstractInputSuggest<TFile> {
 	private onPick: (path: string) => void;
@@ -184,10 +208,20 @@ export class YabacaviSettingTab extends PluginSettingTab {
 						}),
 				)
 				.addColorPicker((picker) =>
-					picker.setValue(statusColor.color || "#888888").onChange((value) => {
-						statusColor.color = value;
+					picker.setValue(splitColor(statusColor.color).hex).onChange((value) => {
+						statusColor.color = combineColor(value, splitColor(statusColor.color).opacity);
 						void this.plugin.saveSettings();
 					}),
+				)
+				.addSlider((slider) =>
+					slider
+						.setLimits(0, 100, 5)
+						.setValue(splitColor(statusColor.color).opacity)
+						.setDynamicTooltip()
+						.onChange((value) => {
+							statusColor.color = combineColor(splitColor(statusColor.color).hex, value);
+							void this.plugin.saveSettings();
+						}),
 				)
 				.addExtraButton((button) =>
 					button
@@ -257,6 +291,7 @@ export class YabacaviSettingTab extends PluginSettingTab {
 				this.plugin.settings.pillScale = value;
 			},
 		);
+
 	}
 
 	/** A 70–150% slider bound to one of the card font-scale settings. */
@@ -390,12 +425,31 @@ export class YabacaviSettingTab extends PluginSettingTab {
 			);
 
 		if (this.plugin.settings.todoistAccentColor !== "") {
-			new Setting(containerEl).setName("Accent colour").addColorPicker((picker) =>
-				picker.setValue(this.plugin.settings.todoistAccentColor).onChange((value) => {
-					this.plugin.settings.todoistAccentColor = value;
-					void this.plugin.saveSettings();
-				}),
-			);
+			new Setting(containerEl)
+				.setName("Accent colour")
+				.setDesc("Colour and opacity of the accent bar.")
+				.addColorPicker((picker) =>
+					picker.setValue(splitColor(this.plugin.settings.todoistAccentColor).hex).onChange((value) => {
+						this.plugin.settings.todoistAccentColor = combineColor(
+							value,
+							splitColor(this.plugin.settings.todoistAccentColor).opacity,
+						);
+						void this.plugin.saveSettings();
+					}),
+				)
+				.addSlider((slider) =>
+					slider
+						.setLimits(0, 100, 5)
+						.setValue(splitColor(this.plugin.settings.todoistAccentColor).opacity)
+						.setDynamicTooltip()
+						.onChange((value) => {
+							this.plugin.settings.todoistAccentColor = combineColor(
+								splitColor(this.plugin.settings.todoistAccentColor).hex,
+								value,
+							);
+							void this.plugin.saveSettings();
+						}),
+				);
 		}
 	}
 }

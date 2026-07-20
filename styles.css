@@ -61,6 +61,38 @@ div.bases-view[data-view-type="calendar-cards"] {
 	gap: var(--size-2-1);
 }
 
+/* Day-count stepper — [- N +], shown only in day mode. */
+.yabacavi-daycount {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.yabacavi-daycount.is-hidden {
+	display: none;
+}
+
+.yabacavi-daycount-value {
+	min-width: 1.5em;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-bold);
+	color: var(--text-normal);
+}
+
+/* Keep the +/- bare like the nav icons, even against themes/snippets that style
+   buttons with more specific selectors (same reason the refresh button needs it). */
+.yabacavi-daycount .yabacavi-btn {
+	background-color: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+.yabacavi-daycount .yabacavi-btn:hover {
+	background-color: var(--background-modifier-hover) !important;
+}
+
 .yabacavi-btn {
 	box-shadow: none;
 	border: none;
@@ -165,8 +197,11 @@ div.bases-view[data-view-type="calendar-cards"] {
 }
 
 .yabacavi-grid--day {
-	grid-template-columns: minmax(0, 1fr);
-	height: 100%;
+	/* One column per day shown (the stepper drives the count). */
+	grid-template-columns: repeat(var(--yabacavi-day-count, 1), minmax(0, 1fr));
+	/* Grow with content (min-height, not a hard height) so the masonry columns can
+	   extend and the whole view scrolls, instead of clamping to the pane. */
+	min-height: 100%;
 }
 
 /* --- day cells ---------------------------------------------------------- */
@@ -187,7 +222,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 .yabacavi-grid--month:not(.is-weekdays-only) .yabacavi-day:nth-child(7n),
 .yabacavi-grid--month.is-weekdays-only .yabacavi-day:nth-child(5n),
 .yabacavi-grid--week .yabacavi-day:last-child,
-.yabacavi-grid--day .yabacavi-day {
+.yabacavi-grid--day .yabacavi-day:last-child {
 	border-right: none;
 }
 
@@ -305,6 +340,23 @@ div.bases-view[data-view-type="calendar-cards"] {
 	overflow-y: auto;
 }
 
+/* Day view is one wide cell, so lay its cards out masonry-style in balanced columns
+   of the configured width and let the whole view scroll — rather than one tall,
+   full-width stack. Height follows content (no internal scroll here) so the columns
+   don't fragment sideways. */
+.yabacavi-grid--day .yabacavi-day-cards {
+	display: block;
+	flex: 0 1 auto;
+	overflow: visible;
+	columns: var(--yabacavi-day-card-width, 260px);
+	column-gap: 8px;
+}
+
+.yabacavi-grid--day .yabacavi-day-cards > .yabacavi-card {
+	break-inside: avoid;
+	margin-bottom: 8px;
+}
+
 /* --- cards -------------------------------------------------------------- */
 
 .yabacavi-card {
@@ -330,6 +382,12 @@ div.bases-view[data-view-type="calendar-cards"] {
 
 .yabacavi:not(.is-readonly) .yabacavi-card {
 	cursor: grab;
+}
+
+/* Placed by creation date — read-only, so no grab cursor even when the view is
+   otherwise editable. */
+.yabacavi:not(.is-readonly) .yabacavi-card[data-placed-by="created"] {
+	cursor: pointer;
 }
 
 /* Kept at low specificity on purpose, so a theme snippet can override the

@@ -65,7 +65,7 @@ function isTagProperty(propId: BasesPropertyId): boolean {
 }
 
 /** data-* keys the view itself owns; a frontmatter key must never overwrite them. */
-const RESERVED_DATA_KEYS = new Set(["file-path", "day-key", "property"]);
+const RESERVED_DATA_KEYS = new Set(["file-path", "day-key", "property", "placed-by"]);
 
 /** Long prose in an attribute would bloat every card in the grid for nothing. */
 const MAX_DATA_VALUE_LENGTH = 120;
@@ -165,8 +165,14 @@ function chipProperties(view: CalendarView): BasesPropertyId[] {
 }
 
 function openNote(view: CalendarView, file: TFile, evt: MouseEvent): void {
-	// Honour ctrl/cmd-click before the configured behaviour, so the card obeys
-	// the same modifiers as every other link in Obsidian.
+	// Shift-click opens a split; ctrl/cmd-click (and Obsidian's other modifiers)
+	// open the pane type Obsidian picks — a new tab, etc.; a plain click follows the
+	// configured "Open notes in" behaviour.
+	if (evt.shiftKey) {
+		evt.preventDefault();
+		void view.app.workspace.getLeaf("split", "vertical").openFile(file);
+		return;
+	}
 	const mod = Keymap.isModEvent(evt);
 	if (mod) {
 		evt.preventDefault();
@@ -182,11 +188,16 @@ export function renderCard(
 	entry: BasesEntry,
 	date: Date,
 	container: HTMLElement,
+	byCreation = false,
 ): HTMLElement {
 	const file = entry.file;
 	const cardEl = container.createDiv({ cls: "yabacavi-card" });
-	cardEl.setAttr("draggable", "true");
 	cardEl.dataset.filePath = file.path;
+	// A card placed by creation date is read-only (ctime can't be written back), so
+	// flag it for CSS and the drag gate and don't mark it draggable. Everything else
+	// reschedules on drop.
+	if (byCreation) cardEl.dataset.placedBy = "created";
+	else cardEl.setAttr("draggable", "true");
 
 	const frontmatter: Record<string, unknown> | null =
 		view.app.metadataCache.getFileCache(file)?.frontmatter ?? null;

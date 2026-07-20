@@ -36,8 +36,11 @@ import {
 	type WeekStart,
 } from "./date-utils";
 import {
+	CONFIG_CARD_WIDTH,
 	CONFIG_DATE_PROPERTY,
+	CONFIG_DAY_COUNT,
 	CONFIG_RANGE,
+	CONFIG_SHOW_CREATED,
 	CONFIG_SHOW_TIME,
 	CONFIG_SHOW_WEEKENDS,
 	CONFIG_WEEK_START,
@@ -62,11 +65,13 @@ const weekTitleFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", mon
 interface CardItem {
 	entry: BasesEntry;
 	date: Date;
+	/** Placed by the file's creation date (no date-property value); read-only. */
+	byCreation?: boolean;
 }
 
 /** A card in a day cell, from either source, unified so they sort together. */
 type DayCard =
-	| { kind: "note"; entry: BasesEntry; date: Date }
+	| { kind: "note"; entry: BasesEntry; date: Date; byCreation?: boolean }
 	| { kind: "todoist"; view: TodoistTaskView };
 
 function dayCardDate(card: DayCard): Date {
@@ -105,6 +110,8 @@ export class CalendarView extends BasesView implements HoverParent {
 	private rootEl: HTMLElement;
 	private titleEl!: HTMLElement;
 	private modesEl!: HTMLElement;
+	private dayCountEl!: HTMLElement;
+	private dayCountValueEl!: HTMLElement;
 	private todoistControlsEl!: HTMLElement;
 	private todoistToggle!: ToggleComponent;
 	private todoistRefreshEl!: HTMLElement;
@@ -231,6 +238,30 @@ export class CalendarView extends BasesView implements HoverParent {
 		return this.config?.get(CONFIG_SHOW_WEEKENDS) !== false;
 	}
 
+	/** Whether to also place notes with no date-property value by their creation
+	 *  day. Off by default. */
+	getShowCreated(): boolean {
+		return this.config?.get(CONFIG_SHOW_CREATED) === true;
+	}
+
+	/** Card width (px) for the day view's masonry layout. */
+	getCardWidth(): number {
+		const value = this.config?.get(CONFIG_CARD_WIDTH);
+		return typeof value === "number" ? value : 260;
+	}
+
+	/** How many days the Day range shows side by side (clamped 1–7). */
+	getDayCount(): number {
+		const value = this.config?.get(CONFIG_DAY_COUNT);
+		return typeof value === "number" ? Math.min(7, Math.max(1, Math.round(value))) : 1;
+	}
+
+	private stepDayCount(delta: number): void {
+		const next = Math.min(7, Math.max(1, this.getDayCount() + delta));
+		this.config?.set(CONFIG_DAY_COUNT, next);
+		this.render();
+	}
+
 	private isDayVisible(day: Date): boolean {
 		return this.getShowWeekends() || !isWeekend(day);
 	}
@@ -285,6 +316,13 @@ export class CalendarView extends BasesView implements HoverParent {
 		this.todoistRefreshEl.setAttr("aria-label", "Refresh Todoist tasks");
 		this.todoistRefreshEl.addEventListener("click", () => void this.plugin.refreshTodoist(true));
 
+		// Day-count stepper: how many days the Day range shows side by side. Only
+		// visible in day mode (reconciled in updateToolbar).
+		this.dayCountEl = toolbarEl.createDiv({ cls: "yabacavi-daycount" });
+		this.iconButton(this.dayCountEl, "lucide-minus", "Fewer days", () => this.stepDayCount(-1));
+		this.dayCountValueEl = this.dayCountEl.createSpan({ cls: "yabacavi-daycount-value" });
+		this.iconButton(this.dayCountEl, "lucide-plus", "More days", () => this.stepDayCount(1));
+
 		this.modesEl = toolbarEl.createDiv({ cls: "yabacavi-modes" });
 		for (const mode of RANGES) {
 			const btnEl = this.modesEl.createEl("button", {
@@ -327,11 +365,9 @@ export class CalendarView extends BasesView implements HoverParent {
 		} else if (range === "week") {
 			this.anchor = addDays(this.anchor, 7 * direction);
 		} else {
-			// Stepping day by day with weekends hidden should skip over them
-			// rather than land on a day the other ranges refuse to show.
-			let next = addDays(this.anchor, direction);
-			while (!this.isDayVisible(next)) next = addDays(next, direction);
-			this.anchor = next;
+			// The day range slides by however many days it shows (a sliding window;
+			// weekends included, since the day range shows whatever you land on).
+			this.anchor = addDays(this.anchor, this.getDayCount() * direction);
 		}
 		this.render();
 	}
@@ -341,9 +377,12 @@ export class CalendarView extends BasesView implements HoverParent {
 			btnEl.toggleClass("is-active", btnEl.dataset.mode === range);
 		}
 
+		this.dayCountEl.toggleClass("is-hidden", range !== "day");
+		this.dayCountValueEl.setText(String(this.getDayCount()));
+
 		if (range === "month") {
 			this.titleEl.setText(monthTitleFormat.format(this.anchor));
-		} else if (range === "week") {
+		} else if (range === "week" || days.length > 1) {
 			const first = days[0];
 			const last = days[days.length - 1];
 			this.titleEl.setText(
@@ -432,6 +471,8 @@ export class CalendarView extends BasesView implements HoverParent {
 	/** A Todoist card is draggable when it isn't a recurring task (rescheduling a
 	 *  recurrence via the API would flatten it); a note card follows editability. */
 	private canDragCard(cardEl: HTMLElement): boolean {
+		// Placed by creation date — ctime isn't writable, so it can't be rescheduled.
+		if (cardEl.dataset.placedBy === "created") return false;
 		if (cardEl.dataset.source === "todoist") {
 			// Completed and recurring tasks can't be dragged to reschedule.
 			return cardEl.dataset.completed !== "true" && cardEl.dataset.recurring !== "true";
@@ -476,8 +517,11 @@ export class CalendarView extends BasesView implements HoverParent {
 	}
 
 	private visibleDays(range: RangeMode, weekStart: WeekStart): Date[] {
-		// Day range shows whatever day you navigated to, weekend or not.
-		if (range === "day") return [startOfDay(this.anchor)];
+		// Day range shows N consecutive days from the anchor, weekend or not.
+		if (range === "day") {
+			const first = startOfDay(this.anchor);
+			return Array.from({ length: this.getDayCount() }, (_, i) => addDays(first, i));
+		}
 
 		if (range === "week") {
 			const first = startOfWeek(this.anchor, weekStart);
@@ -510,6 +554,8 @@ export class CalendarView extends BasesView implements HoverParent {
 		const buckets = new Map<DayKey, CardItem[]>();
 		for (const day of days) buckets.set(toDayKey(day), []);
 
+		const showCreated = this.getShowCreated();
+
 		// data.data arrives with the base's own sort applied — preserve that order.
 		for (const entry of this.data?.data ?? []) {
 			const actual = extractDate(entry, propId);
@@ -520,12 +566,29 @@ export class CalendarView extends BasesView implements HoverParent {
 				date = parseDayKey(pending);
 				if (actual) date.setHours(actual.getHours(), actual.getMinutes(), actual.getSeconds());
 			}
-			if (!date) continue;
+
+			// No date-property value: optionally fall back to the file's creation day
+			// so otherwise-invisible notes still surface. Flagged so the card renders
+			// read-only — ctime can't be written back.
+			if (!date) {
+				if (!showCreated) continue;
+				const created = this.createdDate(entry);
+				if (!created) continue;
+				buckets.get(toDayKey(created))?.push({ entry, date: created, byCreation: true });
+				continue;
+			}
 
 			// Days outside the visible range have no bucket; those entries drop out.
 			buckets.get(toDayKey(date))?.push({ entry, date });
 		}
 		return buckets;
+	}
+
+	/** The file's creation day (time stripped), for the "show notes by creation
+	 *  date" fallback. Null if the file can't be resolved. */
+	private createdDate(entry: BasesEntry): Date | null {
+		const file = this.app.vault.getAbstractFileByPath(entry.file.path);
+		return file instanceof TFile ? startOfDay(new Date(file.stat.ctime)) : null;
 	}
 
 	// --- render ------------------------------------------------------------
@@ -548,6 +611,7 @@ export class CalendarView extends BasesView implements HoverParent {
 		style.setProperty("--yabacavi-title-scale", String(titleScale / 100));
 		style.setProperty("--yabacavi-time-scale", String(timeScale / 100));
 		style.setProperty("--yabacavi-pill-scale", String(pillScale / 100));
+		style.setProperty("--yabacavi-day-card-width", `${this.getCardWidth()}px`);
 	}
 
 	private render(): void {
@@ -587,7 +651,7 @@ export class CalendarView extends BasesView implements HoverParent {
 
 		if (range === "month") this.renderMonth(days, buckets, weekStart);
 		else if (range === "week") this.renderWeek(days, buckets);
-		else this.renderDay(days[0], buckets);
+		else this.renderDay(days, buckets);
 
 		this.bodyEl.scrollTop = scrollTop;
 	}
@@ -632,9 +696,13 @@ export class CalendarView extends BasesView implements HoverParent {
 		for (const day of days) this.renderDayCell(gridEl, day, buckets, "weekday");
 	}
 
-	private renderDay(day: Date, buckets: Map<DayKey, CardItem[]>): void {
+	private renderDay(days: Date[], buckets: Map<DayKey, CardItem[]>): void {
 		const gridEl = this.bodyEl.createDiv({ cls: "yabacavi-grid yabacavi-grid--day" });
-		this.renderDayCell(gridEl, day, buckets, "none");
+		gridEl.style.setProperty("--yabacavi-day-count", String(days.length));
+		// A single day needs no header (the toolbar title covers it); several days
+		// label each column so they're tellable apart.
+		const head = days.length > 1 ? "weekday" : "none";
+		for (const day of days) this.renderDayCell(gridEl, day, buckets, head);
 	}
 
 	private renderDayCell(
@@ -663,7 +731,7 @@ export class CalendarView extends BasesView implements HoverParent {
 		// than notes-then-tasks with each group ordered on its own.
 		const cards: DayCard[] = [];
 		for (const item of buckets.get(dayKey) ?? []) {
-			cards.push({ kind: "note", entry: item.entry, date: item.date });
+			cards.push({ kind: "note", entry: item.entry, date: item.date, byCreation: item.byCreation });
 		}
 		if (this.plugin.isTodoistActive()) {
 			for (const view of this.plugin.todoist.tasksForDay(dayKey)) {
@@ -678,7 +746,7 @@ export class CalendarView extends BasesView implements HoverParent {
 		cards.sort(compareDayCards);
 
 		for (const card of cards) {
-			if (card.kind === "note") renderCard(this, card.entry, card.date, cardsEl);
+			if (card.kind === "note") renderCard(this, card.entry, card.date, cardsEl, card.byCreation);
 			else renderTodoistCard(this, card.view, cardsEl);
 		}
 

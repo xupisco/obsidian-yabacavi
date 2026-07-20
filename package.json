@@ -1,6 +1,6 @@
 {
   "name": "yabacavi",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Yet Another Bases Calendar View - notes as cards, with drag and drop rescheduling",
   "main": "main.js",
   "scripts": {

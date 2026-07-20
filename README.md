@@ -14,8 +14,11 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 
 ## Features
 
-- **Day / week / month** grid, with toolbar navigation and a *Today* button.
+- **Day / week / month** grid, with toolbar navigation and a *Today* button. The day
+  view can span **1–7 days** side by side (a `[- +]` stepper), laid out masonry-style.
 - Place notes by any **date property** — frontmatter, formula or intrinsic file date.
+- **Also show undated notes by creation date** (optional, per view) — surface notes
+  that have no date-property value on the day their file was created.
 - Cards show whichever properties you made visible in the base, so a calendar and a
   table over the same base stay in sync. Formula properties render through Bases, so
   `html()` in a formula works on a card the same as in a table.
@@ -33,8 +36,8 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 - **Open notes** in a floating modal, the current tab, a new tab or a split.
 - **Double-click an empty day** to create a note dated to it, optionally from a
   template file.
-- **Hover** a card for the normal page preview; **right-click** for the file menu;
-  **ctrl/cmd-click** to open in a new pane.
+- **Hover** a card for the normal page preview; **right-click** for the file menu.
+  **Ctrl/cmd-click** a card opens a new tab, **shift-click** opens a split.
 - Show or hide **weekends**; choose the **week start**.
 
 > Drag & drop uses the browser's native drag, which doesn't fire on touch, so
@@ -54,9 +57,12 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 | --- | --- |
 | Date property | Which property places the note on the grid. Required. |
 | Range | Day, week or month. The toolbar buttons write the same setting. |
+| Days shown (Day range) | How many days (1–7) the day view shows side by side. The toolbar `[- +]` stepper writes the same setting. |
 | Week starts on | Sunday or Monday. |
 | Show weekends | When off, Saturday/Sunday are hidden for a 5-column grid. |
+| Also show notes by creation date | Place notes that have no date-property value on their file's creation day (read-only). |
 | Show time on cards | Show the time when the date has one. |
+| Day view card width | Width of the masonry cards in the day view. |
 
 ## Plugin settings (global)
 
@@ -67,13 +73,13 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 | Accent bar thickness | Height in px of each card's accent bar (0 hides it). |
 | Card font sizes | Scale the card title, time and property-pill text, as a percentage of the default. |
 | Status property | Frontmatter property whose value selects the accent colour. |
-| Status colours | Map status values to accent-bar colours. |
+| Status colours | Map status values to accent-bar colours, each with its own opacity. |
 | Todoist API token | Your Todoist token, kept in Obsidian's secret storage (not the settings file). |
 | Show Todoist tasks | Place your Todoist tasks on the grid by their due date. |
 | Todoist filter | Restrict tasks to a Todoist filter query (their own syntax); empty shows all. |
 | Show completed tasks (Beta) | Also place completed tasks on their due day, styled like a `done` note. |
 | Todoist auto-refresh | How often to re-fetch tasks — manual only, or every 5/15/30/60 minutes. |
-| Todoist accent colour | One accent-bar colour for all Todoist cards; off tints them by priority. |
+| Todoist accent colour | One accent-bar colour (with opacity) for all Todoist cards; off tints them by priority. |
 
 ## Todoist tasks
 
@@ -135,16 +141,18 @@ Handy hooks:
 
 - `[data-<property>="…"]` on each card, from the note's frontmatter (`[data-status]`,
   `[data-project]`, …). List values match with `~=`.
-- `--yabacavi-accent-color` on `.yabacavi-card`; `--yabacavi-accent-width` and the
+- `--yabacavi-accent-color` on `.yabacavi-card`; `--yabacavi-accent-width`, the
   `--yabacavi-title-scale` / `--yabacavi-time-scale` / `--yabacavi-pill-scale` font
-  scales on `.yabacavi` (the settings tab writes these — override them for finer
-  control).
+  scales, and `--yabacavi-day-card-width` on `.yabacavi` (the settings and view
+  options write these — override them for finer control).
 - `--yabacavi-day-min-height` on `.yabacavi`.
 - `.yabacavi-card--todoist` for Todoist cards, with `[data-priority="1"…"4"]` and
   `[data-recurring]` to target them (their project/labels are in
   `[data-property="todoist.project"]` / `[data-property="todoist.tags"]`).
 - Completed Todoist cards carry `[data-completed]` and `[data-status="done"]`, so the
   rules that style your `done` notes style them too.
+- Notes placed by their creation date carry `[data-placed-by="created"]` (read-only,
+  not draggable).
 
 Status colours set in the settings tab are applied inline, so they win over CSS
 rules; leave the list empty to drive the accent entirely from your own CSS.
