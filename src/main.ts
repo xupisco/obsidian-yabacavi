@@ -33,7 +33,42 @@ export default class YabacaviPlugin extends Plugin {
 
 		this.addSettingTab(new YabacaviSettingTab(this.app, this));
 
+		this.registerCommands();
 		this.configureTodoist();
+	}
+
+	/** Command-palette entries (also bindable to hotkeys). Each is gated so it only
+	 *  shows when it's meaningful — no clutter for vaults not using Todoist. */
+	private registerCommands(): void {
+		this.addCommand({
+			id: "refresh-todoist",
+			name: "Refresh Todoist tasks",
+			checkCallback: (checking: boolean) => {
+				if (!this.isTodoistActive()) return false;
+				if (!checking) void this.refreshTodoist(true);
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "toggle-todoist",
+			name: "Toggle Todoist tasks",
+			checkCallback: (checking: boolean) => {
+				if (!this.isTodoistConfigured()) return false;
+				if (!checking) void this.toggleTodoistEnabled();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "toggle-todoist-completed",
+			name: "Toggle completed Todoist tasks",
+			checkCallback: (checking: boolean) => {
+				if (!this.isTodoistConfigured()) return false;
+				if (!checking) void this.toggleTodoistCompleted();
+				return true;
+			},
+		});
 	}
 
 	async loadSettings(): Promise<void> {
@@ -80,6 +115,55 @@ export default class YabacaviPlugin extends Plugin {
 		return this.settings.todoistEnabled && this.getTodoistToken() !== null;
 	}
 
+	/** Ensure the completed tasks for the given months (`YYYY-MM`) are loaded, and
+	 *  re-render if anything changed. The views call this for their visible range;
+	 *  it no-ops unless Todoist is active and completed tasks are switched on. Each
+	 *  month is TTL- and in-flight-guarded, so calling it every render is cheap. */
+	async ensureCompletedMonths(monthKeys: string[]): Promise<void> {
+		if (!this.isTodoistActive() || !this.settings.todoistShowCompleted) return;
+		const token = this.getTodoistToken();
+		if (!token) return;
+
+		// Cache lifetime tracks the refresh cadence; when refresh is manual, a short
+		// floor still keeps navigation from re-hitting the API on every move.
+		const minutes = this.settings.todoistRefreshMinutes;
+		const ttl = minutes > 0 ? minutes * 60_000 : 5 * 60_000;
+
+		let changed = false;
+		await Promise.all(
+			monthKeys.map(async (monthKey) => {
+				try {
+					const didFetch = await this.todoist.ensureCompletedMonth(
+						token,
+						monthKey,
+						this.settings.todoistFilter,
+						ttl,
+					);
+					if (didFetch) changed = true;
+				} catch (err) {
+					console.error("Yabacavi: failed to fetch completed Todoist tasks", monthKey, err);
+				}
+			}),
+		);
+		if (changed) this.refreshViews();
+	}
+
+	/** Flip whether Todoist tasks are shown, and (re)start the fetch loop. Backs the
+	 *  toolbar/settings toggle and the command. */
+	async toggleTodoistEnabled(): Promise<void> {
+		this.settings.todoistEnabled = !this.settings.todoistEnabled;
+		await this.saveSettings();
+		this.configureTodoist();
+	}
+
+	/** Flip whether completed tasks are shown; clears their cache when switching off.
+	 *  A re-render (via saveSettings) then re-pulls the visible months when on. */
+	async toggleTodoistCompleted(): Promise<void> {
+		this.settings.todoistShowCompleted = !this.settings.todoistShowCompleted;
+		if (!this.settings.todoistShowCompleted) this.todoist.clearCompleted();
+		await this.saveSettings();
+	}
+
 	/** (Re)start the fetch loop from current settings: clear when off, otherwise
 	 *  fetch once now and arm the timer if an interval is set. */
 	configureTodoist(): void {
@@ -114,6 +198,9 @@ export default class YabacaviPlugin extends Plugin {
 		// so kick it off and only then re-render — rendering first would paint the
 		// button with loading still false and the spinner would never show.
 		const pending = this.todoist.fetch(token, this.settings.todoistFilter);
+		// A refresh should re-pull completed tasks too; marking them stale makes the
+		// next render (which re-runs ensureCompletedMonths) refetch the visible months.
+		this.todoist.invalidateCompleted();
 		this.refreshViews(); // reflect the loading state on the button
 		try {
 			const count = await pending;

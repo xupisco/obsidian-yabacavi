@@ -37,6 +37,8 @@ export interface YabacaviSettings {
 	todoistTokenSecret: string;
 	/** Optional Todoist filter query limiting which tasks are fetched. Empty = all. */
 	todoistFilter: string;
+	/** Also place completed Todoist tasks on the calendar, styled as `done`. */
+	todoistShowCompleted: boolean;
 	/** Auto re-fetch interval in minutes; 0 means manual (toolbar button) only. */
 	todoistRefreshMinutes: number;
 	/** Accent-bar colour for every Todoist card. Empty means tint by priority. */
@@ -57,6 +59,7 @@ export const DEFAULT_SETTINGS: YabacaviSettings = {
 	todoistEnabled: false,
 	todoistTokenSecret: "",
 	todoistFilter: "",
+	todoistShowCompleted: false,
 	todoistRefreshMinutes: 0,
 	todoistAccentColor: "",
 	statusProperty: "status",
@@ -334,6 +337,21 @@ export class YabacaviSettingTab extends PluginSettingTab {
 				// we'd hammer the API and fire half-typed, invalid queries as you type.
 				text.inputEl.addEventListener("blur", () => this.plugin.configureTodoist());
 			});
+
+		const completedSetting = new Setting(containerEl)
+			.setName("Show completed tasks")
+			.setDesc(
+				'Also place completed tasks on their due day, styled like a note with status "done". Fetched per visible month and cached.',
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.todoistShowCompleted).onChange((value) => {
+					this.plugin.settings.todoistShowCompleted = value;
+					if (!value) this.plugin.todoist.clearCompleted();
+					void this.plugin.saveSettings();
+				}),
+			);
+		// Still leans on two API details being validated in the field, so flag it.
+		completedSetting.nameEl.createSpan({ cls: "yabacavi-beta-badge", text: "Beta" });
 
 		new Setting(containerEl)
 			.setName("Auto-refresh")

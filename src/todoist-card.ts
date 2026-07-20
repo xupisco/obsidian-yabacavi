@@ -37,23 +37,36 @@ export function renderTodoistCard(
 	item: TodoistTaskView,
 	container: HTMLElement,
 ): HTMLElement {
-	const { task, projectName, hasTime, date } = item;
+	const { task, projectName, hasTime, date, completed } = item;
 
 	const cardEl = container.createDiv({ cls: "yabacavi-card yabacavi-card--todoist" });
 	cardEl.dataset.source = "todoist";
 	cardEl.dataset.taskId = task.id;
-	cardEl.dataset.priority = String(task.priority);
-	// Recurring tasks aren't draggable — rescheduling one occurrence through the
-	// API would drop the recurrence — so only mark the rest draggable.
-	if (task.due?.is_recurring) cardEl.dataset.recurring = "true";
-	else cardEl.setAttr("draggable", "true");
 
-	// Same accent-bar + body skeleton as a note card. A configured accent is set
-	// inline on the bar itself so it beats the per-priority CSS defaults without a
-	// cascade fight; left unset, those defaults show through.
+	// Same accent-bar + body skeleton as a note card.
 	const accentEl = cardEl.createDiv({ cls: "yabacavi-card-accent" });
-	const accent = view.getTodoistAccentColor();
-	if (accent) accentEl.style.backgroundColor = accent;
+
+	if (completed) {
+		// Render like a vault note with status "done": carry data-status so the same
+		// [data-status="done"] styling (theme/snippet) applies, and tint the accent
+		// with the configured "done" colour, exactly as a note card does. Not
+		// draggable, and no priority tint.
+		cardEl.dataset.completed = "true";
+		cardEl.dataset.status = "done";
+		const doneColor = view.getStatusColor("done");
+		if (doneColor) cardEl.style.setProperty("--yabacavi-accent-color", doneColor);
+	} else {
+		cardEl.dataset.priority = String(task.priority);
+		// Recurring tasks aren't draggable — rescheduling one occurrence through the
+		// API would drop the recurrence — so only mark the rest draggable.
+		if (task.due?.is_recurring) cardEl.dataset.recurring = "true";
+		else cardEl.setAttr("draggable", "true");
+		// A configured accent is set inline on the bar so it beats the per-priority
+		// CSS defaults without a cascade fight; left unset, those defaults show through.
+		const accent = view.getTodoistAccentColor();
+		if (accent) accentEl.style.backgroundColor = accent;
+	}
+
 	const bodyEl = cardEl.createDiv({ cls: "yabacavi-card-body" });
 
 	const titleEl = bodyEl.createDiv({ cls: "yabacavi-card-title" });

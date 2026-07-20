@@ -545,6 +545,20 @@ div.bases-view[data-view-type="calendar-cards"] {
 	}
 }
 
+/* "Beta" tag next to a settings name. */
+.yabacavi-beta-badge {
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: var(--text-on-accent);
+	background-color: var(--interactive-accent);
+	vertical-align: middle;
+}
+
 /* Task marker + title share a row (the card title is otherwise a column, which
    would drop the icon onto its own line). */
 .yabacavi-card-titleline {

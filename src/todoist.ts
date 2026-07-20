@@ -7,6 +7,10 @@ const TASKS_URL = "https://api.todoist.com/api/v1/tasks";
 // A filter query has its own endpoint — the plain /tasks list no longer accepts a
 // `filter` param. Same paginated envelope, task shape unchanged.
 const TASKS_FILTER_URL = "https://api.todoist.com/api/v1/tasks/filter";
+// Completed tasks have their own endpoint, keyed by due date, and require a
+// bounded date window (since/until). Same task shape, but the page key is
+// `items` rather than `results`.
+const TASKS_COMPLETED_URL = "https://api.todoist.com/api/v1/tasks/completed/by_due_date";
 const PROJECTS_URL = "https://api.todoist.com/api/v1/projects";
 
 /** The `due` object of a Todoist task. In the v1 API the time (when any) rides
@@ -97,6 +101,19 @@ export interface TodoistTaskView {
 	hasTime: boolean;
 	/** Resolved from `project_id`; empty when the project can't be found. */
 	projectName: string;
+	/** True for a card that came from the completed-tasks endpoint. */
+	completed: boolean;
+}
+
+/** The `since`/`until` window spanning a whole calendar month (`YYYY-MM`), in the
+ *  local-clock format the completed endpoint accepts. */
+function monthWindow(monthKey: string): { since: string; until: string } {
+	const [year, month] = monthKey.split("-").map(Number);
+	const lastDay = new Date(year, month, 0).getDate();
+	return {
+		since: `${monthKey}-01T00:00:00`,
+		until: `${monthKey}-${String(lastDay).padStart(2, "0")}T23:59:59`,
+	};
 }
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -144,6 +161,16 @@ function dueToDate(due: TodoistDue): { date: Date; hasTime: boolean } | null {
  */
 export class TodoistStore {
 	private byDay = new Map<DayKey, TodoistTaskView[]>();
+	/** Completed tasks, bucketed by due day like the active ones, but filled per
+	 *  month on demand (the endpoint is windowed) and cached. */
+	private completedByDay = new Map<DayKey, TodoistTaskView[]>();
+	/** monthKey (`YYYY-MM`) -> when its completed tasks were last fetched. */
+	private completedAt = new Map<string, number>();
+	/** Months with a completed fetch in flight, so navigation can't double-fire. */
+	private completedInflight = new Set<string>();
+	/** project_id -> name, kept from the last active fetch so completed tasks can
+	 *  resolve their project without a second projects request. */
+	private projectNames = new Map<string, string>();
 	loading = false;
 	error: string | null = null;
 
@@ -151,9 +178,26 @@ export class TodoistStore {
 		return this.byDay.get(key) ?? [];
 	}
 
+	completedTasksForDay(key: DayKey): TodoistTaskView[] {
+		return this.completedByDay.get(key) ?? [];
+	}
+
 	clear(): void {
 		this.byDay.clear();
 		this.error = null;
+	}
+
+	/** Forget all completed tasks (e.g. when the feature is switched off). */
+	clearCompleted(): void {
+		this.completedByDay.clear();
+		this.completedAt.clear();
+	}
+
+	/** Mark every cached completed month stale so the next `ensureCompletedMonth`
+	 *  refetches it. The current cards stay on screen until then. Used by a manual
+	 *  or auto refresh. */
+	invalidateCompleted(): void {
+		this.completedAt.clear();
 	}
 
 	/** Optimistically relocate a task to `dayKey`, keeping its time of day, and
@@ -217,6 +261,8 @@ export class TodoistStore {
 			]);
 
 			const projectName = new Map(projects.map((p) => [p.id, p.name]));
+			// Kept for the completed fetch, which has no projects call of its own.
+			this.projectNames = projectName;
 			const byDay = new Map<DayKey, TodoistTaskView[]>();
 			for (const task of tasks) {
 				if (!task.due) continue;
@@ -228,6 +274,7 @@ export class TodoistStore {
 					date: parsed.date,
 					hasTime: parsed.hasTime,
 					projectName: projectName.get(task.project_id) ?? "",
+					completed: false,
 				};
 				const key = toDayKey(parsed.date);
 				const list = byDay.get(key);
@@ -250,8 +297,79 @@ export class TodoistStore {
 		}
 	}
 
+	/**
+	 * Ensure the completed tasks for `monthKey` (`YYYY-MM`) are loaded and fresh,
+	 * fetching that month's window only when it's missing or older than `ttlMs`.
+	 * Returns true when it refetched (so the caller re-renders). A per-month
+	 * in-flight guard keeps navigation from firing the same request twice.
+	 */
+	async ensureCompletedMonth(
+		token: string,
+		monthKey: string,
+		filter: string,
+		ttlMs: number,
+	): Promise<boolean> {
+		if (this.completedInflight.has(monthKey)) return false;
+		const at = this.completedAt.get(monthKey);
+		if (at !== undefined && Date.now() - at < ttlMs) return false;
+
+		this.completedInflight.add(monthKey);
+		try {
+			const views = await this.fetchCompletedMonth(token, monthKey, filter);
+			this.setCompletedMonth(monthKey, views);
+			this.completedAt.set(monthKey, Date.now());
+			return true;
+		} finally {
+			this.completedInflight.delete(monthKey);
+		}
+	}
+
+	/** Fetch one month's completed tasks (by due date), mapped to views. */
+	private async fetchCompletedMonth(
+		token: string,
+		monthKey: string,
+		filter: string,
+	): Promise<TodoistTaskView[]> {
+		const { since, until } = monthWindow(monthKey);
+		const params = new URLSearchParams({ since, until });
+		const trimmed = filter.trim();
+		if (trimmed) params.set("filter_query", trimmed);
+
+		const tasks = await this.getAll<TodoistTask>(`${TASKS_COMPLETED_URL}?${params.toString()}`, token);
+		const views: TodoistTaskView[] = [];
+		for (const task of tasks) {
+			if (!task.due) continue;
+			const parsed = dueToDate(task.due);
+			if (!parsed) continue;
+			views.push({
+				task,
+				date: parsed.date,
+				hasTime: parsed.hasTime,
+				projectName: this.projectNames.get(task.project_id) ?? "",
+				completed: true,
+			});
+		}
+		return views;
+	}
+
+	/** Replace just this month's completed buckets, leaving other months intact —
+	 *  so a task that was reopened or rescheduled out doesn't linger. */
+	private setCompletedMonth(monthKey: string, views: TodoistTaskView[]): void {
+		for (const key of Array.from(this.completedByDay.keys())) {
+			if (key.startsWith(monthKey)) this.completedByDay.delete(key);
+		}
+		for (const view of views) {
+			const key = toDayKey(view.date);
+			const list = this.completedByDay.get(key);
+			if (list) list.push(view);
+			else this.completedByDay.set(key, [view]);
+		}
+		for (const list of this.completedByDay.values()) list.sort(compareTaskViews);
+	}
+
 	/** GET every page of a v1 list endpoint. The API answers either a bare array
-	 *  or a `{ results, next_cursor }` page; follow the cursor until it runs out. */
+	 *  or a `{ results | items, next_cursor }` page; follow the cursor until it
+	 *  runs out. (Completed endpoints use `items`; the rest use `results`.) */
 	private async getAll<T>(url: string, token: string): Promise<T[]> {
 		const items: T[] = [];
 		let cursor: string | null = null;
@@ -262,13 +380,14 @@ export class TodoistStore {
 			const sep = url.includes("?") ? "&" : "?";
 			const full = cursor ? `${url}${sep}cursor=${encodeURIComponent(cursor)}` : url;
 			const res = await requestUrl({ url: full, headers: { Authorization: `Bearer ${token}` } });
-			const body = res.json as T[] | { results?: T[]; next_cursor?: string | null };
+			const body = res.json as T[] | { results?: T[]; items?: T[]; next_cursor?: string | null };
 
 			if (Array.isArray(body)) {
 				items.push(...body);
 				cursor = null;
 			} else {
-				if (body.results) items.push(...body.results);
+				const page = body.results ?? body.items;
+				if (page) items.push(...page);
 				cursor = body.next_cursor ?? null;
 			}
 		} while (cursor);

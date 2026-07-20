@@ -432,7 +432,10 @@ export class CalendarView extends BasesView implements HoverParent {
 	/** A Todoist card is draggable when it isn't a recurring task (rescheduling a
 	 *  recurrence via the API would flatten it); a note card follows editability. */
 	private canDragCard(cardEl: HTMLElement): boolean {
-		if (cardEl.dataset.source === "todoist") return cardEl.dataset.recurring !== "true";
+		if (cardEl.dataset.source === "todoist") {
+			// Completed and recurring tasks can't be dragged to reschedule.
+			return cardEl.dataset.completed !== "true" && cardEl.dataset.recurring !== "true";
+		}
 		return this.isEditable();
 	}
 
@@ -493,6 +496,14 @@ export class CalendarView extends BasesView implements HoverParent {
 		// Filtering whole weeks leaves exactly 5 per row, still in order, so the
 		// 5-column grid stays aligned.
 		return days.filter((day) => this.isDayVisible(day));
+	}
+
+	/** The distinct months (`YYYY-MM`) the visible grid touches — the month grid can
+	 *  spill into the previous/next month, so this can be more than one. */
+	private visibleMonths(days: Date[]): string[] {
+		const months = new Set<string>();
+		for (const day of days) months.add(toDayKey(day).slice(0, 7));
+		return Array.from(months);
 	}
 
 	private bucketEntries(propId: BasesPropertyId, days: Date[]): Map<DayKey, CardItem[]> {
@@ -567,6 +578,12 @@ export class CalendarView extends BasesView implements HoverParent {
 
 		const buckets = this.bucketEntries(propId, days);
 		this.rootEl.toggleClass("is-readonly", !this.isEditable());
+
+		// Completed tasks are windowed per month; make sure the visible months are
+		// loaded. Cheap when cached — it only re-renders if a fetch brings new data.
+		if (this.plugin.isTodoistActive() && this.plugin.settings.todoistShowCompleted) {
+			void this.plugin.ensureCompletedMonths(this.visibleMonths(days));
+		}
 
 		if (range === "month") this.renderMonth(days, buckets, weekStart);
 		else if (range === "week") this.renderWeek(days, buckets);
@@ -651,6 +668,11 @@ export class CalendarView extends BasesView implements HoverParent {
 		if (this.plugin.isTodoistActive()) {
 			for (const view of this.plugin.todoist.tasksForDay(dayKey)) {
 				cards.push({ kind: "todoist", view });
+			}
+			if (this.plugin.settings.todoistShowCompleted) {
+				for (const view of this.plugin.todoist.completedTasksForDay(dayKey)) {
+					cards.push({ kind: "todoist", view });
+				}
 			}
 		}
 		cards.sort(compareDayCards);

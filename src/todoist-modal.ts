@@ -17,6 +17,25 @@ const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
 	minute: "2-digit",
 });
 
+/**
+ * The note path or name carried by an `obsidian://` URI, or null if it isn't one
+ * (or names no note). Covers the core `open?file=…`/`path=…` shape and the
+ * Advanced URI plugin's `filepath=…`/`filename=…`. The vault is deliberately not
+ * checked — resolving against the current vault covers the common case, and a
+ * mismatch there was silently sending links back to window.open.
+ */
+function obsidianNoteTarget(href: string): string | null {
+	if (!/^obsidian:\/\//i.test(href)) return null;
+	let url: URL;
+	try {
+		url = new URL(href);
+	} catch {
+		return null;
+	}
+	const p = url.searchParams;
+	return p.get("file") ?? p.get("path") ?? p.get("filepath") ?? p.get("filename");
+}
+
 /** Read-only detail view for a Todoist task: title, description, due, project
  *  and labels, plus a jump to the task in Todoist. */
 export class TodoistTaskModal extends Modal {
@@ -42,8 +61,15 @@ export class TodoistTaskModal extends Modal {
 			type: "checkbox",
 			cls: "yabacavi-todoist-check",
 		});
-		checkbox.setAttr("aria-label", "Mark as done");
-		checkbox.addEventListener("change", () => void this.complete(checkbox));
+		if (this.item.completed) {
+			// Already done — show it ticked, and don't offer to complete it again.
+			checkbox.checked = true;
+			checkbox.disabled = true;
+			checkbox.setAttr("aria-label", "Completed");
+		} else {
+			checkbox.setAttr("aria-label", "Mark as done");
+			checkbox.addEventListener("change", () => void this.complete(checkbox));
+		}
 		this.titleEl.createSpan({ text: task.content });
 
 		const { contentEl } = this;
@@ -55,6 +81,7 @@ export class TodoistTaskModal extends Modal {
 			const descEl = contentEl.createDiv({ cls: "yabacavi-todoist-desc markdown-rendered" });
 			this.renderChild.load();
 			void MarkdownRenderer.render(this.app, task.description, descEl, "", this.renderChild);
+			this.wireDescriptionLinks(descEl);
 		}
 
 		const metaEl = contentEl.createDiv({ cls: "yabacavi-todoist-meta" });
@@ -129,6 +156,56 @@ export class TodoistTaskModal extends Modal {
 			window.removeEventListener("blur", onBlur);
 			if (!handedOff) window.open(webUrl, "_blank");
 		}, 700);
+	}
+
+	/**
+	 * Make links in the rendered description open in a new tab. MarkdownRenderer
+	 * wires no click handling here (empty source path, inside a modal), so route
+	 * clicks ourselves — and crucially never let the default action navigate the
+	 * calendar's own leaf. Internal links (wikilinks, and `obsidian://open` URIs
+	 * into this vault) open in a new leaf and close the modal so the note shows;
+	 * external URLs go to the browser.
+	 *
+	 * `obsidian://` links are the reason for the vault-target check: they render as
+	 * plain external links, and letting `window.open` handle one makes Obsidian
+	 * navigate the active (calendar) leaf instead of opening a new tab.
+	 */
+	private wireDescriptionLinks(descEl: HTMLElement): void {
+		descEl.addEventListener(
+			"click",
+			(evt) => {
+				const anchor = (evt.target as HTMLElement).closest("a");
+				if (!anchor) return;
+				const href = anchor.getAttribute("href") ?? "";
+
+				// A wikilink, or an obsidian:// URI that names a note — open it in a new
+				// leaf and close the modal so the note shows.
+				const target = anchor.getAttribute("data-href") ?? obsidianNoteTarget(href);
+				if (target) {
+					evt.preventDefault();
+					evt.stopPropagation();
+					void this.app.workspace.openLinkText(target, "", true);
+					this.close();
+					return;
+				}
+
+				// Never let an obsidian:// link reach window.open — Obsidian would then
+				// navigate the calendar's own leaf. Swallow it rather than hijack.
+				if (/^obsidian:\/\//i.test(href)) {
+					evt.preventDefault();
+					evt.stopPropagation();
+					return;
+				}
+
+				if (href) {
+					evt.preventDefault();
+					evt.stopPropagation();
+					window.open(href, "_blank");
+				}
+			},
+			// Capture phase, so we beat any Obsidian handler that would navigate first.
+			true,
+		);
 	}
 
 	private metaRow(parentEl: HTMLElement, icon: string, label: string, value: string): void {
