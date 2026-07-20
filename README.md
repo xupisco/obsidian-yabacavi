@@ -25,9 +25,11 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
   the point you grabbed it.
 - **Status → accent colour** — map a property's values (e.g. `todo`, `done`) to a
   coloured accent bar, from the settings tab.
+- **Adjustable cards** — set the accent-bar thickness and the title, time and
+  property-pill font sizes from the settings tab.
 - **Todoist tasks on the calendar** — show your Todoist tasks beside your notes,
-  drag them to reschedule, and complete them from the card. See
-  [Todoist tasks](#todoist-tasks).
+  filter them with a Todoist query, optionally include completed tasks, drag them
+  to reschedule, and complete them from the card. See [Todoist tasks](#todoist-tasks).
 - **Open notes** in a floating modal, the current tab, a new tab or a split.
 - **Double-click an empty day** to create a note dated to it, optionally from a
   template file.
@@ -62,10 +64,14 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 | --- | --- |
 | Open notes in | Floating modal, current tab, new tab or split — for clicking a card and for new notes. |
 | New note template | Template file copied into notes created from the calendar (raw copy; template variables aren't expanded). |
+| Accent bar thickness | Height in px of each card's accent bar (0 hides it). |
+| Card font sizes | Scale the card title, time and property-pill text, as a percentage of the default. |
 | Status property | Frontmatter property whose value selects the accent colour. |
 | Status colours | Map status values to accent-bar colours. |
 | Todoist API token | Your Todoist token, kept in Obsidian's secret storage (not the settings file). |
 | Show Todoist tasks | Place your Todoist tasks on the grid by their due date. |
+| Todoist filter | Restrict tasks to a Todoist filter query (their own syntax); empty shows all. |
+| Show completed tasks (Beta) | Also place completed tasks on their due day, styled like a `done` note. |
 | Todoist auto-refresh | How often to re-fetch tasks — manual only, or every 5/15/30/60 minutes. |
 | Todoist accent colour | One accent-bar colour for all Todoist cards; off tints them by priority. |
 
@@ -89,6 +95,11 @@ placed by their due date.
   checkbox by the title to **complete** the task.
 - **Drag a task** to another day to reschedule it in Todoist — a timed task keeps its
   time. Recurring tasks aren't draggable, so their recurrence is never flattened.
+- **Filter** which tasks appear with a Todoist filter query in settings (e.g.
+  `#Work | #Personal`, `@label`) — the same syntax as Todoist's own filters.
+- **Completed tasks (Beta)** — optionally show completed tasks on their due day,
+  styled like a note with status `done` (and not draggable). They're fetched per
+  visible month and cached, so browsing months stays light on the Todoist API.
 - The accent bar is tinted by **priority** (p1 red … p3 blue) unless you set a single
   **custom accent colour** in settings.
 - Tasks and notes **sort together** within a day: timed first (chronological), then
@@ -96,6 +107,15 @@ placed by their due date.
 
 > The Todoist integration needs Obsidian **1.11.4+** for its secret storage. Leave the
 > token empty and nothing Todoist-related appears — the calendar works on its own.
+
+## Commands
+
+With a Todoist token set up, these show in the command palette and can be bound to
+hotkeys:
+
+- **Refresh Todoist tasks** — re-fetch now (same as the toolbar **↻**).
+- **Toggle Todoist tasks** — show or hide Todoist tasks.
+- **Toggle completed Todoist tasks** — show or hide completed tasks.
 
 ## Customising with CSS
 
@@ -115,11 +135,16 @@ Handy hooks:
 
 - `[data-<property>="…"]` on each card, from the note's frontmatter (`[data-status]`,
   `[data-project]`, …). List values match with `~=`.
-- `--yabacavi-accent-color` / `--yabacavi-accent-width` on `.yabacavi-card`.
+- `--yabacavi-accent-color` on `.yabacavi-card`; `--yabacavi-accent-width` and the
+  `--yabacavi-title-scale` / `--yabacavi-time-scale` / `--yabacavi-pill-scale` font
+  scales on `.yabacavi` (the settings tab writes these — override them for finer
+  control).
 - `--yabacavi-day-min-height` on `.yabacavi`.
 - `.yabacavi-card--todoist` for Todoist cards, with `[data-priority="1"…"4"]` and
   `[data-recurring]` to target them (their project/labels are in
   `[data-property="todoist.project"]` / `[data-property="todoist.tags"]`).
+- Completed Todoist cards carry `[data-completed]` and `[data-status="done"]`, so the
+  rules that style your `done` notes style them too.
 
 Status colours set in the settings tab are applied inline, so they win over CSS
 rules; leave the list empty to drive the accent entirely from your own CSS.
