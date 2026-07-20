@@ -223,7 +223,6 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					slider
 						.setLimits(0, 100, 5)
 						.setValue(splitColor(statusColor.color).opacity)
-						.setDynamicTooltip()
 						.onChange((value) => {
 							statusColor.color = combineColor(splitColor(statusColor.color).hex, value);
 							void this.plugin.saveSettings();
@@ -278,7 +277,6 @@ export class YabacaviSettingTab extends PluginSettingTab {
 				slider
 					.setLimits(0, 10, 1)
 					.setValue(this.plugin.settings.accentHeight)
-					.setDynamicTooltip()
 					.onChange((value) => {
 						this.plugin.settings.accentHeight = value;
 						void this.plugin.saveSettings();
@@ -330,7 +328,6 @@ export class YabacaviSettingTab extends PluginSettingTab {
 				slider
 					.setLimits(70, 150, 5)
 					.setValue(get())
-					.setDynamicTooltip()
 					.onChange((value) => {
 						set(value);
 						void this.plugin.saveSettings();
@@ -462,7 +459,6 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					slider
 						.setLimits(0, 100, 5)
 						.setValue(splitColor(this.plugin.settings.todoistAccentColor).opacity)
-						.setDynamicTooltip()
 						.onChange((value) => {
 							this.plugin.settings.todoistAccentColor = combineColor(
 								splitColor(this.plugin.settings.todoistAccentColor).hex,

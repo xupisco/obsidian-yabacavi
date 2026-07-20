@@ -1,6 +1,5 @@
 # npm / deps
 node_modules/
-package-lock.json
 
 # build output (bundled on release)
 main.js
