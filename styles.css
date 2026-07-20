@@ -1,6 +1,9 @@
 .yabacavi {
 	/* Month cells grow with their cards; this is only the floor. */
 	--yabacavi-day-min-height: 120px;
+	/* Accent-bar thickness; the view overwrites this on the root from settings, and
+	   the cards inherit it. */
+	--yabacavi-accent-width: 4px;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -308,8 +311,6 @@ div.bases-view[data-view-type="calendar-cards"] {
 	/* No accent by default; a theme sets this per status. Transparent keeps the
 	   bar invisible until a colour is set. */
 	--yabacavi-accent-color: transparent;
-	/* Thickness of the accent bar across the top of the card. */
-	--yabacavi-accent-width: 5px;
 	display: flex;
 	flex-direction: column;
 	background-color: var(--background-primary-alt);
@@ -358,7 +359,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 
 /* Bar across the top of the card, coloured per status. */
 .yabacavi-card-accent {
-	flex: 0 0 var(--yabacavi-accent-width);
+	flex: 0 0 var(--yabacavi-accent-width, 4px);
 	background-color: var(--yabacavi-accent-color);
 }
 
@@ -374,6 +375,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 	gap: 1px;
 	padding-bottom: 5px;
 	color: var(--text-normal);
+	font-size: calc(var(--font-adaptive-small) * var(--yabacavi-title-scale, 1));
 	font-weight: var(--font-medium);
 	line-height: var(--line-height-tight);
 	overflow-wrap: anywhere;
@@ -382,7 +384,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 .yabacavi-card-time {
 	color: var(--text-accent);
 	font-variant-numeric: tabular-nums;
-	font-size: var(--font-adaptive-smallest);
+	font-size: calc(var(--font-adaptive-smallest) * var(--yabacavi-time-scale, 1));
 	flex: 0 0 auto;
 }
 
@@ -395,7 +397,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 	gap: 8px;
 	margin-top: 6px;
 	min-width: 0;
-	font-size: var(--font-adaptive-smaller);
+	font-size: calc(var(--font-adaptive-smaller) * var(--yabacavi-pill-scale, 1));
 }
 
 /* One container per property, holding that property's items on a line. Target a

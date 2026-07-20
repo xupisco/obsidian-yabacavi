@@ -22,11 +22,21 @@ export interface YabacaviSettings {
 	newNoteTemplate: string;
 	/** Show a per-day icon that opens (or creates) that day's daily note. */
 	showDailyNote: boolean;
+	/** Thickness in px of the card accent bar (0 hides it). */
+	accentHeight: number;
+	/** Card title size, as a percentage of the adaptive default (100 = unchanged). */
+	titleScale: number;
+	/** Card time size, as a percentage of the adaptive default. */
+	timeScale: number;
+	/** Property-pill size, as a percentage of the adaptive default. */
+	pillScale: number;
 	/** Place Todoist tasks on the calendar by their due date. */
 	todoistEnabled: boolean;
 	/** ID of the entry in Obsidian's secret storage holding the API token — not
 	 *  the token itself, which never touches this settings file. */
 	todoistTokenSecret: string;
+	/** Optional Todoist filter query limiting which tasks are fetched. Empty = all. */
+	todoistFilter: string;
 	/** Auto re-fetch interval in minutes; 0 means manual (toolbar button) only. */
 	todoistRefreshMinutes: number;
 	/** Accent-bar colour for every Todoist card. Empty means tint by priority. */
@@ -40,8 +50,13 @@ export const DEFAULT_SETTINGS: YabacaviSettings = {
 	openBehavior: "modal",
 	newNoteTemplate: "",
 	showDailyNote: false,
+	accentHeight: 4,
+	titleScale: 100,
+	timeScale: 100,
+	pillScale: 100,
 	todoistEnabled: false,
 	todoistTokenSecret: "",
+	todoistFilter: "",
 	todoistRefreshMinutes: 0,
 	todoistAccentColor: "",
 	statusProperty: "status",
@@ -135,6 +150,8 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					});
 			});
 
+		this.displayAppearance(containerEl);
+
 		this.displayTodoist(containerEl);
 
 		new Setting(containerEl)
@@ -193,6 +210,75 @@ export class YabacaviSettingTab extends PluginSettingTab {
 		);
 	}
 
+	private displayAppearance(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Appearance").setHeading();
+
+		new Setting(containerEl)
+			.setName("Accent bar thickness")
+			.setDesc("Height in pixels of the coloured bar across the top of each card. Set to 0 to hide it.")
+			.addSlider((slider) =>
+				slider
+					.setLimits(0, 10, 1)
+					.setValue(this.plugin.settings.accentHeight)
+					.setDynamicTooltip()
+					.onChange((value) => {
+						this.plugin.settings.accentHeight = value;
+						void this.plugin.saveSettings();
+					}),
+			);
+
+		this.fontScaleSetting(
+			containerEl,
+			"Title size",
+			"Card title size, as a percentage of the default.",
+			() => this.plugin.settings.titleScale,
+			(value) => {
+				this.plugin.settings.titleScale = value;
+			},
+		);
+		this.fontScaleSetting(
+			containerEl,
+			"Time size",
+			"Card time size, as a percentage of the default.",
+			() => this.plugin.settings.timeScale,
+			(value) => {
+				this.plugin.settings.timeScale = value;
+			},
+		);
+		this.fontScaleSetting(
+			containerEl,
+			"Pill size",
+			"Property-pill size, as a percentage of the default.",
+			() => this.plugin.settings.pillScale,
+			(value) => {
+				this.plugin.settings.pillScale = value;
+			},
+		);
+	}
+
+	/** A 70–150% slider bound to one of the card font-scale settings. */
+	private fontScaleSetting(
+		containerEl: HTMLElement,
+		name: string,
+		desc: string,
+		get: () => number,
+		set: (value: number) => void,
+	): void {
+		new Setting(containerEl)
+			.setName(name)
+			.setDesc(desc)
+			.addSlider((slider) =>
+				slider
+					.setLimits(70, 150, 5)
+					.setValue(get())
+					.setDynamicTooltip()
+					.onChange((value) => {
+						set(value);
+						void this.plugin.saveSettings();
+					}),
+			);
+	}
+
 	private displayTodoist(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName("Todoist").setHeading();
 
@@ -230,6 +316,24 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					this.plugin.configureTodoist();
 				}),
 			);
+
+		new Setting(containerEl)
+			.setName("Filter")
+			.setDesc(
+				"Optional Todoist filter query, using the same syntax as Todoist's own filters (for example: #Work | #Personal). Leave empty to show all tasks with a due date.",
+			)
+			.addText((text) => {
+				text
+					.setPlaceholder("#Work | #Personal")
+					.setValue(this.plugin.settings.todoistFilter)
+					.onChange((value) => {
+						this.plugin.settings.todoistFilter = value.trim();
+						void this.plugin.saveSettings();
+					});
+				// Re-fetch when the field loses focus, not on every keystroke — otherwise
+				// we'd hammer the API and fire half-typed, invalid queries as you type.
+				text.inputEl.addEventListener("blur", () => this.plugin.configureTodoist());
+			});
 
 		new Setting(containerEl)
 			.setName("Auto-refresh")

@@ -527,7 +527,20 @@ export class CalendarView extends BasesView implements HoverParent {
 		}, RENDER_DEBOUNCE_MS);
 	}
 
+	/** Mirror the appearance settings onto the view root as CSS variables; the
+	 *  cards inherit them, so re-applying here is all a settings change needs to
+	 *  re-style. Fonts are stored as percentages, hence the /100. */
+	private applyAppearance(): void {
+		const { accentHeight, titleScale, timeScale, pillScale } = this.plugin.settings;
+		const style = this.rootEl.style;
+		style.setProperty("--yabacavi-accent-width", `${accentHeight}px`);
+		style.setProperty("--yabacavi-title-scale", String(titleScale / 100));
+		style.setProperty("--yabacavi-time-scale", String(timeScale / 100));
+		style.setProperty("--yabacavi-pill-scale", String(pillScale / 100));
+	}
+
 	private render(): void {
+		this.applyAppearance();
 		const range = this.getRange();
 		const weekStart = this.getWeekStart();
 		const days = this.visibleDays(range, weekStart);

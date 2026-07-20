@@ -4,6 +4,9 @@ import { parseDayKey, toDayKey, type DayKey } from "./date-utils";
 // Todoist's REST v2 API (rest/v2) was sunset — it now answers 410. The unified
 // v1 API replaces it, with cursor-paginated list endpoints.
 const TASKS_URL = "https://api.todoist.com/api/v1/tasks";
+// A filter query has its own endpoint — the plain /tasks list no longer accepts a
+// `filter` param. Same paginated envelope, task shape unchanged.
+const TASKS_FILTER_URL = "https://api.todoist.com/api/v1/tasks/filter";
 const PROJECTS_URL = "https://api.todoist.com/api/v1/projects";
 
 /** The `due` object of a Todoist task. In the v1 API the time (when any) rides
@@ -195,14 +198,21 @@ export class TodoistStore {
 	}
 
 	/** Fetch tasks and projects, rebuild the day buckets, and return how many dated
-	 *  tasks were placed. Throws on a network or auth failure, leaving the previous
-	 *  buckets in place for the caller to decide whether to keep showing them. */
-	async fetch(token: string): Promise<number> {
+	 *  tasks were placed. A non-empty `filter` restricts tasks to a Todoist filter
+	 *  query. Throws on a network or auth failure, leaving the previous buckets in
+	 *  place for the caller to decide whether to keep showing them. */
+	async fetch(token: string, filter = ""): Promise<number> {
 		this.loading = true;
 		this.error = null;
 		try {
+			// A filter query goes to the dedicated /tasks/filter endpoint; empty means
+			// the plain list of all active tasks.
+			const trimmed = filter.trim();
+			const tasksUrl = trimmed
+				? `${TASKS_FILTER_URL}?query=${encodeURIComponent(trimmed)}`
+				: TASKS_URL;
 			const [tasks, projects] = await Promise.all([
-				this.getAll<TodoistTask>(TASKS_URL, token),
+				this.getAll<TodoistTask>(tasksUrl, token),
 				this.getAll<TodoistProject>(PROJECTS_URL, token),
 			]);
 
@@ -247,7 +257,10 @@ export class TodoistStore {
 		let cursor: string | null = null;
 
 		do {
-			const full = cursor ? `${url}?cursor=${encodeURIComponent(cursor)}` : url;
+			// The url may already carry a query string (the filter endpoint), so pick
+			// the right separator before appending the cursor.
+			const sep = url.includes("?") ? "&" : "?";
+			const full = cursor ? `${url}${sep}cursor=${encodeURIComponent(cursor)}` : url;
 			const res = await requestUrl({ url: full, headers: { Authorization: `Bearer ${token}` } });
 			const body = res.json as T[] | { results?: T[]; next_cursor?: string | null };
 

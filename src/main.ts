@@ -110,13 +110,17 @@ export default class YabacaviPlugin extends Plugin {
 		const token = this.getTodoistToken();
 		if (!this.settings.todoistEnabled || !token) return;
 
+		// fetch() flips todoist.loading true synchronously, before its first await,
+		// so kick it off and only then re-render — rendering first would paint the
+		// button with loading still false and the spinner would never show.
+		const pending = this.todoist.fetch(token, this.settings.todoistFilter);
 		this.refreshViews(); // reflect the loading state on the button
 		try {
-			const count = await this.todoist.fetch(token);
+			const count = await pending;
 			if (notify) new Notice(`Todoist: synced ${count} task${count === 1 ? "" : "s"}.`);
 		} catch (err) {
 			console.error("Yabacavi: failed to fetch Todoist tasks", err);
-			new Notice("Yabacavi: couldn't fetch Todoist tasks — check the API token.");
+			new Notice("Yabacavi: couldn't fetch Todoist tasks — check the API token or filter.");
 		}
 		this.refreshViews();
 	}
