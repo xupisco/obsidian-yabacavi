@@ -10,6 +10,9 @@ import {
 import type YabacaviPlugin from "./main";
 import type { OpenBehavior } from "./view-options";
 
+/** How a note's status colour is shown on its card. */
+export type AccentStyle = "bar" | "bullet" | "none";
+
 export interface StatusColor {
 	value: string;
 	color: string;
@@ -22,6 +25,8 @@ export interface YabacaviSettings {
 	newNoteTemplate: string;
 	/** Show a per-day icon that opens (or creates) that day's daily note. */
 	showDailyNote: boolean;
+	/** How a note's status colour appears on its card: bar, bullet, or nothing. */
+	accentStyle: AccentStyle;
 	/** Thickness in px of the card accent bar (0 hides it). */
 	accentHeight: number;
 	/** Card title size, as a percentage of the adaptive default (100 = unchanged). */
@@ -52,6 +57,7 @@ export const DEFAULT_SETTINGS: YabacaviSettings = {
 	openBehavior: "modal",
 	newNoteTemplate: "",
 	showDailyNote: false,
+	accentStyle: "bar",
 	accentHeight: 4,
 	titleScale: 100,
 	timeScale: 100,
@@ -249,6 +255,21 @@ export class YabacaviSettingTab extends PluginSettingTab {
 
 	private displayAppearance(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName("Appearance").setHeading();
+
+		new Setting(containerEl)
+			.setName("Status display")
+			.setDesc("How a note's status colour shows on its card — a bar, a bullet before the title, or nothing.")
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("bar", "Accent bar")
+					.addOption("bullet", "Accent bullet")
+					.addOption("none", "None")
+					.setValue(this.plugin.settings.accentStyle)
+					.onChange((value) => {
+						this.plugin.settings.accentStyle = value as AccentStyle;
+						void this.plugin.saveSettings();
+					}),
+			);
 
 		new Setting(containerEl)
 			.setName("Accent bar thickness")

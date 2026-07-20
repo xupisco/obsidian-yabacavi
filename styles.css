@@ -421,6 +421,27 @@ div.bases-view[data-view-type="calendar-cards"] {
 	background-color: var(--yabacavi-accent-color);
 }
 
+/* Status display modes (data-accent-style on the view root). "bar" (default) keeps
+   the accent bar; "bullet" hides it and puts a coloured dot before the note title;
+   "none" hides it entirely. Todoist cards follow the same show/hide of the bar —
+   they just never get a bullet. */
+.yabacavi[data-accent-style="bullet"] .yabacavi-card-accent,
+.yabacavi[data-accent-style="none"] .yabacavi-card-accent {
+	display: none;
+}
+
+.yabacavi[data-accent-style="bullet"] .yabacavi-card[data-has-status] .yabacavi-card-title-text::before {
+	content: "";
+	display: inline-block;
+	width: 0.6em;
+	height: 0.6em;
+	margin-right: 0.4em;
+	margin-bottom: 3px;
+	border-radius: 50%;
+	background-color: var(--yabacavi-accent-color);
+	vertical-align: middle;
+}
+
 .yabacavi-card-body {
 	flex: 1;
 	min-width: 0;

@@ -27,7 +27,8 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
   property stays date-only. The dragged card follows the cursor and swings from
   the point you grabbed it.
 - **Status → accent colour** — map a property's values (e.g. `todo`, `done`) to a
-  coloured accent bar, from the settings tab.
+  coloured accent, shown as a **bar or a bullet** before the title (or hidden), from
+  the settings tab.
 - **Adjustable cards** — set the accent-bar thickness and the title, time and
   property-pill font sizes from the settings tab.
 - **Todoist tasks on the calendar** — show your Todoist tasks beside your notes,
@@ -70,6 +71,7 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 | --- | --- |
 | Open notes in | Floating modal, current tab, new tab or split — for clicking a card and for new notes. |
 | New note template | Template file copied into notes created from the calendar (raw copy; template variables aren't expanded). |
+| Status display | Show the status accent as an accent bar, a bullet before the title, or nothing. |
 | Accent bar thickness | Height in px of each card's accent bar (0 hides it). |
 | Card font sizes | Scale the card title, time and property-pill text, as a percentage of the default. |
 | Status property | Frontmatter property whose value selects the accent colour. |

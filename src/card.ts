@@ -65,7 +65,7 @@ function isTagProperty(propId: BasesPropertyId): boolean {
 }
 
 /** data-* keys the view itself owns; a frontmatter key must never overwrite them. */
-const RESERVED_DATA_KEYS = new Set(["file-path", "day-key", "property", "placed-by"]);
+const RESERVED_DATA_KEYS = new Set(["file-path", "day-key", "property", "placed-by", "has-status"]);
 
 /** Long prose in an attribute would bloat every card in the grid for nothing. */
 const MAX_DATA_VALUE_LENGTH = 120;
@@ -144,7 +144,12 @@ function applyAccentColor(
 	const values = typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [];
 	for (const value of values) {
 		if (typeof value !== "string") continue;
-		const color = view.getStatusColor(value.trim());
+		const trimmed = value.trim();
+		if (!trimmed) continue;
+		// The note has a status value — the bullet mode keys off this, so notes with
+		// none (e.g. creation-date cards) show no bullet at all.
+		cardEl.dataset.hasStatus = "true";
+		const color = view.getStatusColor(trimmed);
 		if (color) {
 			cardEl.style.setProperty("--yabacavi-accent-color", color);
 			return;
@@ -213,7 +218,7 @@ export function renderCard(
 	if (view.getShowTime() && hasTime(date)) {
 		titleEl.createSpan({ cls: "yabacavi-card-time", text: timeFormat.format(date) });
 	}
-	titleEl.createSpan({ text: file.basename });
+	titleEl.createSpan({ cls: "yabacavi-card-title-text", text: file.basename });
 
 	let propsEl: HTMLElement | null = null;
 	let chips = 0;
