@@ -605,9 +605,15 @@ export class CalendarView extends BasesView implements HoverParent {
 	 *  cards inherit them, so re-applying here is all a settings change needs to
 	 *  re-style. Fonts are stored as percentages, hence the /100. */
 	private applyAppearance(): void {
-		const { accentStyle, accentHeight, titleScale, timeScale, pillScale } = this.plugin.settings;
+		const { accentStyle, propsLayout, accentHeight, titleScale, timeScale, pillScale } =
+			this.plugin.settings;
 		const style = this.rootEl.style;
+		// Drive the accent-style modes off variables (not descendant rules) so they
+		// also reach the drag ghost, which lives outside the view on <body>.
 		this.rootEl.dataset.accentStyle = accentStyle;
+		style.setProperty("--yabacavi-accent-bar-display", accentStyle === "bar" ? "block" : "none");
+		style.setProperty("--yabacavi-bullet-display", accentStyle === "bullet" ? "inline-block" : "none");
+		style.setProperty("--yabacavi-props-direction", propsLayout === "inline" ? "row" : "column");
 		style.setProperty("--yabacavi-accent-width", `${accentHeight}px`);
 		style.setProperty("--yabacavi-title-scale", String(titleScale / 100));
 		style.setProperty("--yabacavi-time-scale", String(timeScale / 100));

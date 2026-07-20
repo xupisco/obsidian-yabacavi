@@ -13,6 +13,9 @@ import type { OpenBehavior } from "./view-options";
 /** How a note's status colour is shown on its card. */
 export type AccentStyle = "bar" | "bullet" | "none";
 
+/** How a card's property chips are laid out — one per line, or flowing together. */
+export type PropsLayout = "stacked" | "inline";
+
 export interface StatusColor {
 	value: string;
 	color: string;
@@ -27,6 +30,8 @@ export interface YabacaviSettings {
 	showDailyNote: boolean;
 	/** How a note's status colour appears on its card: bar, bullet, or nothing. */
 	accentStyle: AccentStyle;
+	/** Card property layout: stacked (one per line) or inline (flowing together). */
+	propsLayout: PropsLayout;
 	/** Thickness in px of the card accent bar (0 hides it). */
 	accentHeight: number;
 	/** Card title size, as a percentage of the adaptive default (100 = unchanged). */
@@ -58,6 +63,7 @@ export const DEFAULT_SETTINGS: YabacaviSettings = {
 	newNoteTemplate: "",
 	showDailyNote: false,
 	accentStyle: "bar",
+	propsLayout: "stacked",
 	accentHeight: 4,
 	titleScale: 100,
 	timeScale: 100,
@@ -266,6 +272,20 @@ export class YabacaviSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.accentStyle)
 					.onChange((value) => {
 						this.plugin.settings.accentStyle = value as AccentStyle;
+						void this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Property layout")
+			.setDesc("How a card's properties are arranged — each on its own line, or flowing together.")
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("stacked", "Stacked (one per line)")
+					.addOption("inline", "Inline (flow together)")
+					.setValue(this.plugin.settings.propsLayout)
+					.onChange((value) => {
+						this.plugin.settings.propsLayout = value as PropsLayout;
 						void this.plugin.saveSettings();
 					}),
 			);

@@ -34,8 +34,9 @@ export class DragGhost {
 	private velocity = 0;
 	private angle = 0;
 
-	/** Mount on <body> so position:fixed resolves against the viewport; the ghost
-	 *  gets its look from the plugin's (unscoped) card CSS plus the copied accent. */
+	/** Mounted on <body> so position:fixed tracks the viewport (no clipping). Its look
+	 *  comes from the plugin's unscoped card CSS plus the Yabacavi custom properties
+	 *  copied from the source below — that's how the accent/props settings carry over. */
 	start(sourceEl: HTMLElement, mountEl: HTMLElement, clientX: number, clientY: number): void {
 		this.stop();
 
@@ -51,12 +52,33 @@ export class DragGhost {
 		clone.style.setProperty("--yabacavi-ghost-origin-x", `${this.grabX}px`);
 		clone.style.setProperty("--yabacavi-ghost-origin-y", `${this.grabY}px`);
 
-		// Insurance for accent rules scoped deeper than the mount point (e.g. per
-		// day cell): copy the colour the source card actually resolved to.
+		// Mounted on <body>, the ghost inherits none of the custom properties the view
+		// root or a snippet set on the card, so it would fall back to defaults. Copy
+		// the source card's *resolved* Yabacavi variables across so the ghost matches
+		// it exactly — this carries the appearance settings (accent, font scales) and
+		// any snippet colour/size overrides, scoped or not. (Variable-based: non-var
+		// rules scoped to `.yabacavi` still can't reach an element on <body>.)
 		const computed = activeWindow.getComputedStyle(sourceEl);
-		for (const prop of ["--yabacavi-accent-color", "--yabacavi-accent-width"]) {
+		const copyVar = (prop: string): void => {
 			const value = computed.getPropertyValue(prop).trim();
 			if (value) clone.style.setProperty(prop, value);
+		};
+		// Inherited-from-root vars the enumeration below can miss.
+		for (const prop of [
+			"--yabacavi-accent-color",
+			"--yabacavi-accent-width",
+			"--yabacavi-accent-bar-display",
+			"--yabacavi-bullet-display",
+			"--yabacavi-title-scale",
+			"--yabacavi-time-scale",
+			"--yabacavi-pill-scale",
+			"--yabacavi-props-direction",
+		]) {
+			copyVar(prop);
+		}
+		// Anything else in the Yabacavi namespace the card resolved (e.g. from a snippet).
+		for (let i = 0; i < computed.length; i++) {
+			if (computed[i].startsWith("--yabacavi")) copyVar(computed[i]);
 		}
 
 		mountEl.appendChild(clone);

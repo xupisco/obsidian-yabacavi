@@ -72,6 +72,7 @@ Requires Obsidian **1.11.4+** with the **Bases** core plugin enabled.
 | Open notes in | Floating modal, current tab, new tab or split — for clicking a card and for new notes. |
 | New note template | Template file copied into notes created from the calendar (raw copy; template variables aren't expanded). |
 | Status display | Show the status accent as an accent bar, a bullet before the title, or nothing. |
+| Property layout | Arrange card properties stacked (one per line) or inline (flowing together). |
 | Accent bar thickness | Height in px of each card's accent bar (0 hides it). |
 | Card font sizes | Scale the card title, time and property-pill text, as a percentage of the default. |
 | Status property | Frontmatter property whose value selects the accent colour. |

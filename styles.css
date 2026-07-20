@@ -417,22 +417,20 @@ div.bases-view[data-view-type="calendar-cards"] {
 
 /* Bar across the top of the card, coloured per status. */
 .yabacavi-card-accent {
+	display: var(--yabacavi-accent-bar-display, block);
 	flex: 0 0 var(--yabacavi-accent-width, 4px);
 	background-color: var(--yabacavi-accent-color);
 }
 
-/* Status display modes (data-accent-style on the view root). "bar" (default) keeps
-   the accent bar; "bullet" hides it and puts a coloured dot before the note title;
-   "none" hides it entirely. Todoist cards follow the same show/hide of the bar —
-   they just never get a bullet. */
-.yabacavi[data-accent-style="bullet"] .yabacavi-card-accent,
-.yabacavi[data-accent-style="none"] .yabacavi-card-accent {
-	display: none;
-}
-
-.yabacavi[data-accent-style="bullet"] .yabacavi-card[data-has-status] .yabacavi-card-title-text::before {
+/* Status display modes are driven by variables set on the root from settings (not
+   descendant rules), so they carry to the drag ghost, which lives on <body>. "bar"
+   shows the accent bar (--yabacavi-accent-bar-display); "bullet" hides it and shows a
+   coloured dot before the title of cards that have a status (--yabacavi-bullet-
+   display); "none" hides both. The rules are unscoped, so they match the ghost too.
+   Todoist cards follow the bar var but have no title-text — so no bullet. */
+.yabacavi-card[data-has-status] .yabacavi-card-title-text::before {
 	content: "";
-	display: inline-block;
+	display: var(--yabacavi-bullet-display, none);
 	width: 0.6em;
 	height: 0.6em;
 	margin-right: 0.4em;
@@ -471,9 +469,12 @@ div.bases-view[data-view-type="calendar-cards"] {
    doesn't touch what's inside them. */
 .yabacavi-card-props {
 	display: flex;
-	flex-direction: column;
+	/* Stacked (column) by default; the "Property layout" setting can flow them inline
+	   (row) via the root var. */
+	flex-direction: var(--yabacavi-props-direction, column);
+	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: 8px;
+	gap: 6px;
 	margin-top: 6px;
 	min-width: 0;
 	font-size: calc(var(--font-adaptive-smaller) * var(--yabacavi-pill-scale, 1));
@@ -485,7 +486,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 .yabacavi-chip {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: 6px;
 	max-width: 100%;
 	min-width: 0;
 	color: var(--text-muted);
@@ -493,7 +494,7 @@ div.bases-view[data-view-type="calendar-cards"] {
 
 .yabacavi-chip-item {
 	max-width: 100%;
-	padding: 0 var(--size-2-2);
+	padding: 1px 4px;
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-hover);
 	white-space: nowrap;

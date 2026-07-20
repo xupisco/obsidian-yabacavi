@@ -67,9 +67,10 @@ export class DragDropManager {
 
 		// Blank the native snapshot and float our own clone, which can swing.
 		hideNativeDragImage(evt.dataTransfer);
-		// Mount on <body>, not rootEl: position:fixed must resolve against the
-		// viewport, and a transformed ancestor of the view would otherwise offset
-		// the ghost downward from the cursor.
+		// Mount on <body>, not the view: position:fixed then tracks the viewport with
+		// no clipping from the view's overflow. The ghost's look comes from the
+		// plugin's unscoped card CSS plus the Yabacavi custom properties DragGhost
+		// copies from the source (so the accent/props settings carry over).
 		this.ghost.start(cardEl, this.doc.body, evt.clientX, evt.clientY);
 	};
 
